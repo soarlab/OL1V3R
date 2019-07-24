@@ -1,8 +1,9 @@
 #lang racket
 
 (require "parsing/parse.rkt"
-         "parsing/transform.rkt"
-          syntax/parse/define)
+         "parsing/transform.rkt")
+
+(provide get-real-model)
 
 ;; convert QF_FP to Real in place
 (define (real->fp/file file)
@@ -24,12 +25,11 @@
     #:exists 'replace)
   (define z3-output
     (string->sexp
-      (with-output-to-string
-        (thunk (system (~v "z3" (path->string temp-file)))))))
+     (with-output-to-string
+       (thunk (system (~v "z3" (path->string temp-file)))))))
   (match (car z3-output)
     ['sat (model->assignment (second z3-output))]
     [_ #f]))
-  
 
 (define (model->assignment sexp)
   (define (build-assignment exprs)
@@ -61,4 +61,4 @@
     [_ (error "unsupported model")]))
 
 ;(real->fp/file (vector-ref (current-command-line-arguments) 0))
-(get-real-model (vector-ref (current-command-line-arguments) 0))
+;(get-real-model (vector-ref (current-command-line-arguments) 0))

@@ -5,6 +5,7 @@
 (require "sls.rkt"
          "parsing/parse.rkt"
          "parsing/transform.rkt"
+         "fp2real.rkt"
          racket/cmdline)
 
 (define main
@@ -14,6 +15,7 @@
            [wp (make-parameter 0.001)]
            [step (make-parameter 200)]
            [start-with-zeros? (make-parameter #t)]
+           [try-real-models? (make-parameter #t)]
            [print-models? (make-parameter #f)]
            [enable-log (make-parameter #f)]
            [file-to-analyze
@@ -60,6 +62,7 @@
              ["--initialize-with-random" ("Initialize search space with random values"
                                           "otherwise search space is initialized to all 0s")
                                          (start-with-zeros? #f)]
+             ["--try-real-models" ("Try real models as initial models") (try-real-models? #t)]
              ["--print-models" ("Print models") (print-models? #t)]
              ["--debug" ("Enable logger") (enable-log #t)]
              #:args (filename) ; expect one command-line argument: <filename>
@@ -86,7 +89,17 @@
                              (loop)))))
                      (current-logger oliver-logger)))
             42)
-        (define result (sls var-info formula (c2) (step) (wp) (start-with-zeros?)))
+        (define initial-models
+          (let ([models (if (start-with-zeros?)
+                            (initialize/Assignment var-info)
+                            (randomize/Assignment var-info))])
+            (if (try-real-models?)
+                (let ([real-models (get-real-model file-to-analyze)])
+                  (if real-models
+                      real-models
+                      models))
+                models)))
+        (define result (sls var-info formula (c2) (step) (wp) initial-models))
         (if (equal? (car result) 'sat)
             (begin
               (displayln "sat")

@@ -81,7 +81,7 @@
        (hash-keys var-info))))
 
 (define sls
-  (λ (var-info F c2 maxSteps wp start-with-zeros?)
+  (λ (var-info F c2 maxSteps wp initial-model)
     (define sls/do
       (λ (i assignment)
         (define select/Candidates
@@ -150,6 +150,4 @@
                               )))))])))
     (sls/do
      0
-     (if start-with-zeros?
-         (initialize/Assignment var-info)
-         (randomize/Assignment var-info)))))
+     initial-model)))
