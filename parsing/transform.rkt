@@ -1,7 +1,8 @@
 #lang racket
 
-(require "../data/bit-vec.rkt")
-(require "../data/fp.rkt")
+(require "../data/bit-vec.rkt"
+         "../data/fp.rkt"
+         math/bigfloat)
 
 (provide (all-defined-out))
 
@@ -29,6 +30,31 @@
       [`(,exprs ...) (map transform-expr exprs)]
       ['true '⊤]
       ['false '⊥]
+      [_ sexp])))
+
+;; TODO: use a macro to implement this
+(define fp->real
+  (λ (sexp)
+    (match sexp
+      ;; types
+      [`(_ FloatingPoint ,eb ,sb) 'Real]
+      ;; consts
+      [`(_ +zero ,eb ,sb) 0]
+      [`(_ -zero ,eb, sb) 0]
+      [(FloatingPoint _ _ val) (bigfloat->flonum val)]
+      ;; predicates
+      [`(fp.lt ,exprs ...) `(< ,@(map fp->real exprs))]
+      [`(fp.gt ,exprs ...) `(> ,@(map fp->real exprs))]
+      [`(fp.leq ,exprs ...) `(<= ,@(map fp->real exprs))]
+      [`(fp.geq ,exprs ...) `(>= ,@(map fp->real exprs))]
+      ;; arithmetic
+      [`(fp.add ,rm ,exprs ...) `(+ ,@(map fp->real exprs))]
+      [`(fp.sub ,rm ,exprs ...) `(- ,@(map fp->real exprs))]
+      [`(fp.mul ,rm ,exprs ...) `(* ,@(map fp->real exprs))]
+      [`(fp.div ,rm ,exprs ...) `(/ ,@(map fp->real exprs))]
+      ;; recur
+      [`(,exprs ...) (map fp->real exprs)]
+      ;; id
       [_ sexp])))
 
 ; shamelessly stole it from https://homes.cs.washington.edu/~emina/media/sat/code.html#normal-formsrkt
