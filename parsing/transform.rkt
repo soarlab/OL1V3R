@@ -48,10 +48,13 @@
       [`(fp.leq ,exprs ...) `(<= ,@(map fp->real exprs))]
       [`(fp.geq ,exprs ...) `(>= ,@(map fp->real exprs))]
       ;; arithmetic
+      [`(fp.neg ,expr) `(- 0 ,expr)]
       [`(fp.add ,rm ,exprs ...) `(+ ,@(map fp->real exprs))]
       [`(fp.sub ,rm ,exprs ...) `(- ,@(map fp->real exprs))]
       [`(fp.mul ,rm ,exprs ...) `(* ,@(map fp->real exprs))]
       [`(fp.div ,rm ,exprs ...) `(/ ,@(map fp->real exprs))]
+      ;; conversion between fps
+      [`((_ to_fp ,eb ,sb) ,rm ,expr) expr]
       ;; recur
       [`(,exprs ...) (map fp->real exprs)]
       ;; id
