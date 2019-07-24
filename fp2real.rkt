@@ -1,7 +1,8 @@
 #lang racket
 
 (require "parsing/parse.rkt"
-         "parsing/transform.rkt")
+         "parsing/transform.rkt"
+          syntax/parse/define)
 
 ;; convert QF_FP to Real in place
 (define (real->fp/file file)
@@ -12,18 +13,22 @@
 
 (define (get-real-model file)
   (define temp-file (make-temporary-file "rkttmp~a" file))
-  (define z3-output (open-output-string))
   (call-with-output-file
       temp-file
     (λ (output-port)
       (begin
         (for ([elem (fp->real (remove-fpconst (file->sexp file)))])
           (writeln elem output-port))
-        (writeln "(get-model)")))
+        (writeln '(get-model) output-port)))
     #:mode 'text
     #:exists 'replace)
-  (process/ports z3-output #f z3-output (~v "z3" temp-file))
-  (get-output-string z3-output))
+  (define z3-output
+    (string->sexp
+      (with-output-to-string
+        (thunk (system (~v "z3" (path->string temp-file)))))))
+  (match (car z3-output)
+    ['sat (model->assignment (second z3-output))]
+    [_ #f]))
   
 
 (define (model->assignment sexp)
@@ -33,11 +38,21 @@
         [`(,expr ...) (map rationalize expr)]
         [_ (if (and (number? expr) (inexact? expr))
                (inexact->exact expr) expr)]))
+    ;; TODO: 1. use macros 2. use eval
+    (define (simple-eval expr)
+      (match expr
+        [`(+ ,o1 ,o2) (+ (simple-eval o1) (simple-eval o2))]
+        [`(- ,o1 ,o2) (- (simple-eval o1) (simple-eval o2))]
+        [`(- ,o) (- 0 (simple-eval o))]
+        [`(* ,o1 ,o2) (* (simple-eval o1) (simple-eval o2))]
+        [`(/ ,o1 ,o2) (/ (simple-eval o1) (simple-eval o2))]
+        [_ expr]))
     (foldl
      (λ (expr assignment)
        (match expr
          [`(define-fun ,id () Real ,val)
-          (hash-set assignment id (eval (rationalize val)))]
+          (define new-val (rationalize val))
+          (hash-set assignment id (simple-eval new-val))]
          [_ (error "unsupported model")]))
      (make-immutable-hash)
      exprs))
