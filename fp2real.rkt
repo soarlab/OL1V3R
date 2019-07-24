@@ -19,7 +19,9 @@
       (begin
         (for ([elem (fp->real (remove-fpconst (file->sexp file)))])
           (writeln elem output-port))
-        (writeln "(get-model)"))))
+        (writeln "(get-model)")))
+    #:mode-flag 'text
+    #:exists-flag 'replace)
   (process/ports z3-output #f z3-output (~v "z3" temp-file))
   (get-output-string z3-output))
   
