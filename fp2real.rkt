@@ -1,9 +1,11 @@
 #lang racket
 
 (require "parsing/parse.rkt"
-         "parsing/transform.rkt")
+         "parsing/transform.rkt"
+         "data/fp.rkt")
 
-(provide get-real-model)
+(provide get-real-model
+         real-model->fp-model)
 
 ;; convert QF_FP to Real in place
 (define (real->fp/file file)
@@ -30,6 +32,16 @@
   (match (car z3-output)
     ['sat (model->assignment (second z3-output))]
     [_ #f]))
+
+(define (real-model->fp-model real-model var-info)
+  (define (real->fp-by-type key value)
+    (define type (hash-ref var-info key))
+    (cond
+      [(fp-type? type)
+       (define widths (get/fp-type-widths type))
+       (real->FloatingPoint value (car widths) (cdr widths))]
+      [else value]))
+  (hash-map real-model real->fp-by-type))
 
 (define (model->assignment sexp)
   (define (build-assignment exprs)

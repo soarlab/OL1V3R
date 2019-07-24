@@ -96,7 +96,7 @@
             (if (try-real-models?)
                 (let ([real-models (get-real-model file-to-analyze)])
                   (if real-models
-                      real-models
+                      (real-model->fp-model real-models var-info)
                       models))
                 models)))
         (define result (sls var-info formula (c2) (step) (wp) initial-models))
