@@ -39,9 +39,9 @@
     (cond
       [(fp-type? type)
        (define widths (get/fp-type-widths type))
-       (real->FloatingPoint value (car widths) (cdr widths))]
+       (cons key (real->FloatingPoint value (car widths) (cdr widths)))]
       [else value]))
-  (hash-map real-model real->fp-by-type))
+  (make-immutable-hash (hash-map real-model real->fp-by-type)))
 
 (define (model->assignment sexp)
   (define (build-assignment exprs)
