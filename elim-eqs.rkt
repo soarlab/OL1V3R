@@ -16,17 +16,18 @@
   (define decls (filter
                  (λ (e) (match e
                           [`(declare-const ,id ,type) #t]
-                           [`(declare-fun ,id () ,type) #t]
-                           [_ #f]))
+                          [`(declare-fun ,id () ,type) #t]
+                          [_ #f]))
                  raw-expr))
   (displayln decls)
   (call-with-output-file
       temp-file
     (λ (output-port)
       (display
+       (string-replace
         raw-content
         "check-sat"
-        "apply solve-eqs"
+        "apply solve-eqs")
        output-port))
     #:mode 'text
     #:exists 'replace)
