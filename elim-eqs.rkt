@@ -19,7 +19,6 @@
                           [`(declare-fun ,id () ,type) #t]
                           [_ #f]))
                  raw-expr))
-  (displayln decls)
   (call-with-output-file
       temp-file
     (λ (output-port)
@@ -35,6 +34,14 @@
     (string->sexp
      (with-output-to-string
        (thunk (system (~v "z3" (path->string temp-file)))))))
-  (displayln z3-output))
+  (define real-goal (second (second z3-output)))
+  (define asserts
+    (if (list? real-goal)
+        '((assert true))
+        (map (λ (x) `(assert ,x)) real-goal)))
+  (for ([decl decls])
+    (displayln decl))
+  (for ([assert asserts])
+    (displayln assert)))
 
 (eliminate-eqs (vector-ref (current-command-line-arguments) 0))
