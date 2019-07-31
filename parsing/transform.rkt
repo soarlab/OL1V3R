@@ -43,6 +43,7 @@
       [`(_ -zero ,eb, sb) 0]
       [(FloatingPoint _ _ val) (bigfloat->flonum val)]
       ;; predicates
+      [`(fp.eq ,exprs ...) `(= ,@(map fp->real exprs))]
       [`(fp.lt ,exprs ...) `(< ,@(map fp->real exprs))]
       [`(fp.gt ,exprs ...) `(> ,@(map fp->real exprs))]
       [`(fp.leq ,exprs ...) `(<= ,@(map fp->real exprs))]
