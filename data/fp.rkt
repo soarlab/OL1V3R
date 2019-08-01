@@ -84,6 +84,14 @@
     `(,(eval/fpmul fp two)
       ,(eval/fpdiv fp two))))
 
+(define (sig/± fp)
+  (define exp-width (FloatingPoint-exp-width fp))
+  (define sig-width (FloatingPoint-sig-width fp))
+  (define br (FloatingPoint->BitVec fp))
+  (define one (mkBV (BitVec-width br) 1))
+  `(,(BitVec->FloatingPoint (eval/bvadd br one) exp-width sig-width)
+    ,(BitVec->FloatingPoint (eval/bvsub br one) exp-width sig-width)))
+
 (define get/fp-extended-neighbors
   (λ (fp)
     (define exp-width (FloatingPoint-exp-width fp))
@@ -104,6 +112,44 @@
                     (cons (real->FloatingPoint +inf.f exp-width sig-width)
                           (cons (real->FloatingPoint -inf.f exp-width sig-width) fns)))))
         (exp/± fp))])))
+
+(define (get/fp-neighbor-flip-sign fp)
+  `(,(eval/fpneg fp)))
+
+(define (get/fp-neighbors val ni)
+  (cond
+    [(= ni 1) (if (fp/nan? val) '() (get/fp-neighbor-flip-sign val))]
+    [(= ni 2) (if (fp/nan? val) '() (get/fp-neighbor-exp val))]
+    [(= ni 3) (if (fp/nan? val)
+                  (get/fp-extended-neighbors val)
+                  (get/fp-neighbor-sig val))]))
+
+(define (get/fp-neighbor-exp fp)
+  (define exp-width (FloatingPoint-exp-width fp))
+  (define sig-width (FloatingPoint-sig-width fp))
+  (define flip-exp
+    (map
+     (λ (bv) (BitVec->FloatingPoint bv exp-width sig-width))
+     (let ([sig-width-wo (- sig-width 1)])
+       (get/1-exchange-range
+        (FloatingPoint->BitVec fp)
+        sig-width-wo
+        (+ sig-width-wo exp-width)))))
+  (append flip-exp (exp/± fp)))
+
+(define (get/fp-neighbor-sig fp)
+  (define exp-width (FloatingPoint-exp-width fp))
+  (define sig-width (FloatingPoint-sig-width fp))
+  (define flip-sig
+    (map
+     (λ (bv) (BitVec->FloatingPoint bv exp-width sig-width))
+     (let ([sig-width-wo (- sig-width 1)])
+       (get/1-exchange-range
+        (FloatingPoint->BitVec fp)
+        0
+        sig-width-wo))))
+  (append flip-sig (sig/± fp)))
+   
 
 ;; floating-point arithmetic
 (define fp/round-to-subnormal
@@ -209,7 +255,7 @@
              (FloatingPoint-value (get/maximum-subnormal exp-w-1 sig-w-1))))
            (fp/round-to-subnormal result exp-w-1 sig-w-1)]
           [else (mkFP exp-w-1 sig-w-1 result)]))
-      (error "invalid arithmetic operation")))
+      (error "invalid arithmetic operation~a" op fp1 fp2)))
 
 (define eval/fpadd (eval/fparith/binop bf+))
 (define eval/fpsub (eval/fparith/binop bf-))

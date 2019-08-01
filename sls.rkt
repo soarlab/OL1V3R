@@ -80,6 +80,77 @@
        (make-immutable-hash)
        (hash-keys var-info))))
 
+(define (sls-vns var-info F c2 maxSteps wp initial-model)
+  (define (sls/do i assignment ni nc)
+    (define (select/Candidates assert-scores)
+      (let* ([currScore (/ (apply + assert-scores) (length assert-scores))]
+             [candAssertion (select/Assertion assert-scores)]
+             [get/neighbors
+              (λ (candVars)
+                (apply append
+                       (map
+                        (λ (candVar)
+                          (define val (get-value assignment candVar))
+                          (map ((curry update/Assignment) assignment candVar)
+                               (get/fp-neighbors val ni)))
+                        candVars)))]
+             [select/Move
+              (λ (candVars)
+                (define neighbors (get/neighbors candVars))
+                ; choose the neighbor with the highest score
+                (if (empty neighbors)
+                    #f
+                    (argmax (λ (a) ((score c2 a) F)) neighbors)))])
+        (let ([local-opt (select/Move (get/vars candAssertion assignment))])
+          (if (and local-opt
+                   (> ((score c2 (cdr local-opt)) F) currScore))
+              ; improving
+              (cons #t local-opt)
+              ; not improving
+              (cons #f #f)))))
+    (define select/Assertion
+      (λ (assert-scores)
+        ;; assume when the score of an assertion is 1, it's satisfiable
+        ;; no diversification TODO: UCB
+        (define asserts (get/assertions F))
+        ;; choose the assertion that has the highest score but is not satisfied
+        (cdr (argmax (λ (t) (if (< (car t) 1) (car t) -1))
+                     (for/list ([as assert-scores]
+                                [a asserts])
+                       (cons as a))))))
+    (cond
+      [(>= i maxSteps) (cons 'unknown '())]
+      [else (let* ([asserts (get/assertions F)]
+                   [assert-scores (map (score c2 assignment) asserts)])
+              (begin
+                (log-debug "=========================================")
+                (log-debug "~a\n" (map exact->inexact assert-scores))
+                (log-debug "~a\n" assignment)
+                (if (andmap (λ (s) (= s 1)) assert-scores)
+                    ;; if sat, print models and return 'sat
+                    (cons 'sat (get/models assignment))
+                    ;; if not, select the best-improving candidate
+                    ;; note that the candidate can be a random walk
+                    (let ([newAssign (select/Candidates assert-scores)])
+                      (if (car newAssign)
+                          ;; best improving
+                          ;; change neighbor id to 1
+                          (sls/do (+ i 1) (cdr newAssign) 1 nc)
+                          ;; no improving candidate, randomize
+                          (begin
+                            (log-debug "no improving candidate!~a\n" ni)
+                            (let ([new-ni (+ ni 1)])
+                              (if (> new-ni nc)
+                                  (begin
+                                    (log-debug "exhaust neighborhood relations!")
+                                    (sls/do (+ i 1) (randomize/Assignment var-info) 1 nc))
+                                  (begin
+                                    (log-debug "using relation~a\n" new-ni)
+                                    (sls/do (+ i 1) assignment new-ni nc))))))))))]))
+  (sls/do
+   0
+   initial-model 1 3))
+
 (define sls
   (λ (var-info F c2 maxSteps wp initial-model)
     (define sls/do

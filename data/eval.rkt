@@ -16,7 +16,7 @@
     (define lookup
       (λ (sym env)
         (cond
-          [(null? env) (error "symbol not found during evaluation!")]
+          [(null? env) (error "symbol not found during evaluation!~a" sym)]
           [else (let ([binding (car env)])
                   (if (equal? (car binding) sym)
                       (cdr binding)
