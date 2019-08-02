@@ -6,6 +6,7 @@
          "parsing/parse.rkt"
          "parsing/transform.rkt"
          "fp2real.rkt"
+         "elim-eqs.rkt"
          racket/cmdline)
 
 (define main
@@ -15,8 +16,10 @@
            [wp (make-parameter 0.001)]
            [step (make-parameter 200)]
            [start-with-zeros? (make-parameter #t)]
-           [try-real-models? (make-parameter #t)]
+           [try-real-models? (make-parameter #f)]
            [print-models? (make-parameter #f)]
+           [elim-eqs? (make-parameter #f)]
+           [vns (make-parameter #f)]
            [enable-log (make-parameter #f)]
            [file-to-analyze
             (command-line
@@ -63,12 +66,15 @@
                                           "otherwise search space is initialized to all 0s")
                                          (start-with-zeros? #f)]
              ["--try-real-models" ("Try real models as initial models") (try-real-models? #t)]
+             ["--vns" ("Enable variable neighborhood search") (vns #t)]
+             ["--elim-eqs" ("Enable Z3 `solve-eqs` tactics") (elim-eqs? #t)]
              ["--print-models" ("Print models") (print-models? #t)]
              ["--debug" ("Enable logger") (enable-log #t)]
              #:args (filename) ; expect one command-line argument: <filename>
              ; return the argument as a filename to compile
              filename)]
-           [script (file->sexp file-to-analyze)]
+           [input-file (if (elim-eqs?) (eliminate-eqs file-to-analyze) file-to-analyze)]
+           [script (file->sexp input-file)]
            [formula (remove-fpconst
                      (simplify
                       (unnest
@@ -94,12 +100,13 @@
                             (initialize/Assignment var-info)
                             (randomize/Assignment var-info))])
             (if (try-real-models?)
-                (let ([real-models (get-real-model file-to-analyze)])
+                (let ([real-models (get-real-model input-file)])
                   (if real-models
                       (real-model->fp-model real-models var-info)
                       models))
                 models)))
-        (define result (sls var-info formula (c2) (step) (wp) initial-models))
+        (define result ((if (vns) sls-vns sls)
+          var-info formula (c2) (step) (wp) initial-models))
         (if (equal? (car result) 'sat)
             (begin
               (displayln "sat")

@@ -1,12 +1,7 @@
 #lang racket
 
 (require "parsing/parse.rkt")
-
-(define (format-id str)
-  (string-replace str "|" "❚"))
-
-(define (reformat-id str)
-  (string-replace str "❚" "|"))
+(provide eliminate-eqs)
 
 ;; use Z3's solve-eqs tactic to remove equalities
 (define (eliminate-eqs file)
@@ -34,14 +29,16 @@
     (string->sexp
      (with-output-to-string
        (thunk (system (~v "z3" (path->string temp-file)))))))
-  (define real-goal (second (second z3-output)))
+  (define real-goal (filter list? (cdr (second (car z3-output)))))
   (define asserts
-    (if (list? real-goal)
-        '((assert true))
-        (map (λ (x) `(assert ,x)) real-goal)))
-  (for ([decl decls])
-    (displayln decl))
-  (for ([assert asserts])
-    (displayln assert)))
+        (map (λ (x) `(assert ,x)) real-goal))
+  (define (print output-port path)
+   (for ([decl decls])
+    (displayln decl output-port))
+   (for ([assert asserts])
+    (displayln assert output-port))
+    (displayln '(check-sat) output-port))
+  (begin (call-with-atomic-output-file temp-file print)
+  temp-file))
 
-(eliminate-eqs (vector-ref (current-command-line-arguments) 0))
+;(eliminate-eqs (vector-ref (current-command-line-arguments) 0))

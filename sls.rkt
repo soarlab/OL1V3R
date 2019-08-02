@@ -98,12 +98,12 @@
               (λ (candVars)
                 (define neighbors (get/neighbors candVars))
                 ; choose the neighbor with the highest score
-                (if (empty neighbors)
+                (if (empty? neighbors)
                     #f
                     (argmax (λ (a) ((score c2 a) F)) neighbors)))])
         (let ([local-opt (select/Move (get/vars candAssertion assignment))])
           (if (and local-opt
-                   (> ((score c2 (cdr local-opt)) F) currScore))
+                   (> ((score c2 local-opt) F) currScore))
               ; improving
               (cons #t local-opt)
               ; not improving
