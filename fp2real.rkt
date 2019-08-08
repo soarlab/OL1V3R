@@ -29,7 +29,6 @@
     (string->sexp
      (with-output-to-string
        (thunk (system (~v "z3" (path->string temp-file)))))))
-  (displayln z3-output)
   (match (car z3-output)
     ['sat (model->assignment (second z3-output))]
     [_ #f]))
