@@ -108,6 +108,24 @@
                    '()))])))
     (set->list (list->set (get/vars/do F)))))
 
+(define get-reachable-vars
+  (λ (F assignment)
+    (define get/vars/do
+      (λ (F)
+        (match F
+          [`(let ((,id ,binding) ...) ,expr)
+           `(,@(apply append (map get/vars/do binding)) ,@(get/vars/do expr))]
+          [`(,op ,args ...)
+           (apply append (map get/vars/do args))]
+          [(struct FloatingPoint _) '()]
+          [(struct BitVec _) '()]
+          [_
+           (if (and (symbol? F)
+                    (hash-has-key? assignment F))
+               `(,F)
+               '())])))
+    (get/vars/do F)))
+
 (define build/bvconst
   (λ (v w)
     `(_
