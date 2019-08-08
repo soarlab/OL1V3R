@@ -16,8 +16,14 @@
       [_ (error "unimplemented type!")])))
 
 (define get/models
-  (λ (assignment)
-    (for/list ([pr (hash->list assignment)])
+  (λ (assignment asserts)
+    (define reachable-vars
+      (list->set
+       (apply
+        append
+        (map (λ (a) (get-reachable-vars a assignment) asserts)))))
+    (for/list ([pr (hash->list assignment)]
+               #:when (set-member? reachable-vars (car pr)))
       (define name (car pr))
       (define value (cdr pr))
       `(assert
@@ -128,7 +134,7 @@
                 (log-debug "~a\n" assignment)
                 (if (andmap (λ (s) (= s 1)) assert-scores)
                     ;; if sat, print models and return 'sat
-                    (cons 'sat (get/models assignment))
+                    (cons 'sat (get/models assignment asserts))
                     ;; if not, select the best-improving candidate
                     ;; note that the candidate can be a random walk
                     (let ([newAssign (select/Candidates assert-scores)])
@@ -207,7 +213,7 @@
                     (log-debug "~a\n" assignment)
                     (if (andmap (λ (s) (= s 1)) assert-scores)
                         ;; if sat, print models and return 'sat
-                        (cons 'sat (get/models assignment))
+                        (cons 'sat (get/models assignment asserts))
                         ;; if not, select the best-improving candidate
                         ;; note that the candidate can be a random walk
                         (let ([newAssign (select/Candidates assert-scores)])
