@@ -21,7 +21,7 @@
       (list->set
        (apply
         append
-        (map (λ (a) (get-reachable-vars a assignment) asserts)))))
+        (map (λ (a) (get-reachable-vars a assignment)) asserts))))
     (for/list ([pr (hash->list assignment)]
                #:when (set-member? reachable-vars (car pr)))
       (define name (car pr))

@@ -111,7 +111,8 @@
             (begin
               (displayln "sat")
               (if (print-models?)
-                  (displayln (cdr result))
+                  (for ([as (cdr result)])
+                    (displayln as))
                   (display "")))
             (displayln "unknown"))))))
 
