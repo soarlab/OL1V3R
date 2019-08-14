@@ -151,9 +151,8 @@
         sig-width-wo))))
   (append flip-sig (sig/± fp)))
    
-
 ;; floating-point arithmetic
-(define fp/round-to-subnormal
+#;(define fp/round-to-subnormal
   (λ (v exp-width sig-width)
     (define subnormal-min
       (FloatingPoint-value
@@ -182,6 +181,9 @@
                   (if (bfpositive? v)
                       rv
                       (eval/fpneg rv)))])))))
+
+(define (fp/round-to-subnormal v exp-width sig-width)
+  (mkFP exp-width sig-width (bf-round-to-subnormal v exp-width sig-width)))
 
 (define fp/result-infinity?
   (λ (v exp-width sig-width)

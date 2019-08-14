@@ -3,7 +3,36 @@
 (require math/bigfloat
          "bit-vec.rkt")
 
-(provide BitVec->bf bf->BitVec)
+(provide BitVec->bf bf->BitVec bf-round-to-subnormal)
+
+(define (bf-round-to-subnormal v exp-width sig-width)
+  (define subnormal-min
+    (BitVec->bf
+     (mkBV
+      (+ exp-width sig-width)
+      1)
+     exp-width
+     sig-width))
+  (define pv (bfabs v))
+  (let-values
+      ([(s1 p1) (bigfloat->sig+exp pv)]
+       [(s2 p2) (bigfloat->sig+exp subnormal-min)])
+    (let ([r (round
+              (/
+               (* s1 (expt 2 p1))
+               (* s2 (expt 2 p2))))])
+      (cond
+        [(< r 1) (if (bfpositive? v)
+                     (bf 0.0)
+                     (bf -0.0))]
+        [else (let ([rv (BitVec->bf
+                         (mkBV (+ exp-width sig-width) r)
+                         exp-width
+                         sig-width)])
+                (if (bfpositive? v)
+                    rv
+                    (parameterize ([bf-precision sig-width])
+                      (bf* (bf -1.0) rv))))]))))
 
 (define (BitVec->bf bv exp-width sig-width)
   (if (= (BitVec-width bv) (+ exp-width sig-width))
