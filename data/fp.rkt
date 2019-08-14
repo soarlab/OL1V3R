@@ -1,7 +1,7 @@
 #lang racket
 
-(require math/bigfloat
-         racket/struct
+(require racket/struct
+         "fake-bigfloat.rkt"
          "bit-vec.rkt"
          "fp-utils.rkt")
 
@@ -195,19 +195,11 @@
 
 (define get/+inf
   (λ (exp-width sig-width)
-    (mkFP
-     exp-width
-     sig-width
-     (parameterize ([bf-precision sig-width])
-      (bfcopy +inf.bf)))))
+    (real->FloatingPoint exp-width sig-width +inf.0)))
 
 (define get/-inf
   (λ (exp-width sig-width)
-    (mkFP
-     exp-width
-     sig-width
-     (parameterize ([bf-precision sig-width])
-      (bfcopy -inf.bf)))))
+    (real->FloatingPoint exp-width sig-width -inf.0)))
 
 (define get/maximum-normal
   (λ (exp-width sig-width)
@@ -409,7 +401,7 @@
   (define exp-width (FloatingPoint-exp-width fp))
   (define sig-width (FloatingPoint-sig-width fp))
   (define fp-val (FloatingPoint-value fp))
-  (mkBV (+ exp-width sig-width) (bf->BitVec fp-val exp-width sig-width)))
+  (bf->BitVec fp-val exp-width sig-width))
 
 ; fp->bv
 #;(define FloatingPoint->BitVec
