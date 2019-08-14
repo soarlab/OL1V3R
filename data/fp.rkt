@@ -1,8 +1,9 @@
 #lang racket
 
-(require math/bigfloat)
-(require racket/struct)
-(require "bit-vec.rkt")
+(require math/bigfloat
+         racket/struct
+         "bit-vec.rkt"
+         "fp-utils.rkt")
 
 (provide (all-defined-out))
 
@@ -371,7 +372,7 @@
       (mkFP exp-width sig-width (bf rv))))))
 
 ;; bv->fp
-(define BitVec->FloatingPoint
+#;(define BitVec->FloatingPoint
   (λ (bv exp-width sig-width)
     (mkFP exp-width sig-width
           (if (= (BitVec-width bv) (+ exp-width sig-width))
@@ -399,8 +400,17 @@
                                  sig-width-wo))])))
               (error "Bit width doesn't match!")))))
 
+(define (BitVec->FloatingPoint bv exp-width sig-width)
+  (mkFP exp-width sig-width (BitVec->bf bv exp-width sig-width)))
+
+(define (FloatingPoint->BitVec fp)
+  (define exp-width (FloatingPoint-exp-width fp))
+  (define sig-width (FloatingPoint-sig-width fp))
+  (define fp-val (FloatingPoint-value fp))
+  (mkBV (+ exp-width sig-width) (bf->BitVec fp-val exp-width sig-width)))
+
 ; fp->bv
-(define FloatingPoint->BitVec
+#;(define FloatingPoint->BitVec
   (λ (fp)
     (let* ([exp-width (FloatingPoint-exp-width fp)]
            [sig-width (FloatingPoint-sig-width fp)]
