@@ -26,6 +26,7 @@
          bigfloat-signbit
          bigfloat->nat
          nat->bigfloat
+         bigfloat->flonum
          )
 
 ;; a fake bigfloat library for oliver
@@ -193,10 +194,11 @@
 
 (define (nat->bigfloat v precision)
   (define (get-float bw)
-    (mkbf
-     (floating-point-bytes->real (integer->integer-bytes v bw #f))
-     precision))
+    (floating-point-bytes->real (integer->integer-bytes v bw #f)))
   (cond
-    [(= precision single-precision) (get-float 4)]
-    [(= precision double-precision) (get-float 8)]
+    [(= precision single-precision) (mkbf (real->single-flonum (get-float 4)) precision)]
+    [(= precision double-precision) (mkbf (real->double-flonum (get-float 8)) precision)]
     [else (error "unsupported precision!~a" precision)]))
+
+(define (bigfloat->flonum val)
+  (fake-bf-value val))

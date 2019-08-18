@@ -2,7 +2,7 @@
 
 (require "../data/bit-vec.rkt"
          "../data/fp.rkt"
-         math/bigfloat)
+         "../data/fake-bigfloat.rkt")
 
 (provide (all-defined-out))
 
@@ -41,7 +41,7 @@
       ;; consts
       [`(_ +zero ,eb ,sb) 0]
       [`(_ -zero ,eb, sb) 0]
-      [(FloatingPoint _ _ val) (bigfloat->flonum val)]
+      [(FloatingPoint _ _ val) (real->double-flonum (bigfloat->flonum val))]
       ;; predicates
       [`(fp.eq ,exprs ...) `(= ,@(map fp->real exprs))]
       [`(fp.lt ,exprs ...) `(< ,@(map fp->real exprs))]
