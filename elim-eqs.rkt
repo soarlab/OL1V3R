@@ -14,6 +14,11 @@
                           [`(declare-fun ,id () ,type) #t]
                           [_ #f]))
                  raw-expr))
+  (define (get-asserts z3-output)
+    (match (car z3-output)
+      [`(goals (goal ,asserts ... :precision precise :depth 1))
+       (map (λ (x) `(assert ,x)) asserts)]
+      [_ (error "unsupported goal format!~a" z3-output)]))
   (call-with-output-file
       temp-file
     (λ (output-port)
@@ -29,9 +34,10 @@
     (string->sexp
      (with-output-to-string
        (thunk (system (~v "z3" (path->string temp-file)))))))
-  (define real-goal (filter list? (cdr (second (car z3-output)))))
-  (define asserts
+  ;(define real-goal (filter list? (cdr (second (car z3-output)))))
+  #;(define asserts
         (map (λ (x) `(assert ,x)) real-goal))
+  (define asserts (get-asserts z3-output))
   (define (print output-port path)
    (for ([decl decls])
     (displayln decl output-port))
