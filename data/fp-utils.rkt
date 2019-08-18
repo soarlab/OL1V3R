@@ -1,11 +1,14 @@
 #lang racket
 
-(require math/bigfloat
-         "bit-vec.rkt")
+(require ;math/bigfloat
+         "bit-vec.rkt"
+         "fake-bigfloat.rkt")
 
 (provide BitVec->bf bf->BitVec bf-round-to-subnormal)
 
 (define (bf-round-to-subnormal v exp-width sig-width)
+  v)
+#;(define (bf-round-to-subnormal v exp-width sig-width)
   (define subnormal-min
     (BitVec->bf
      (mkBV
@@ -35,6 +38,11 @@
                       (bf* (bf -1.0) rv))))]))))
 
 (define (BitVec->bf bv exp-width sig-width)
+  (nat->bigfloat
+   (BitVec-value bv)
+   sig-width))
+
+#;(define (BitVec->bf bv exp-width sig-width)
   (if (= (BitVec-width bv) (+ exp-width sig-width))
       (parameterize ([bf-precision sig-width])
         (let* ([bv-value (BitVec-value bv)]
@@ -59,9 +67,11 @@
                       (- (- exp-bits exp-bias)
                          sig-width-wo))])))
       (error "Bit width doesn't match!")))
-  
 
 (define (bf->BitVec fp-val exp-width sig-width)
+  (mkBV (+ exp-width sig-width) (bigfloat->nat fp-val)))
+
+#;(define (bf->BitVec fp-val exp-width sig-width)
   (define sig-width-wo (- sig-width 1))
   (define exp-bias (- (expt 2 (- exp-width 1)) 1))
   (define sign-wrap (λ (v sign-bit)

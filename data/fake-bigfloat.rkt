@@ -24,6 +24,8 @@
          bf=
          bfcopy
          bigfloat-signbit
+         bigfloat->nat
+         nat->bigfloat
          )
 
 ;; a fake bigfloat library for oliver
@@ -60,7 +62,7 @@
        [(double-precision?) (mkbf
                             (real->double-flonum v)
                             (bf-precision))]
-       [else (error "unsupported format!")])]
+       [else (error "unsupported format!~a" (bf-precision) v)])]
     [else (error "invalid input type for bv construction!")]))
 
 ;; unary predicates
@@ -82,13 +84,15 @@
 ;; binary predicates
 (define (bf-bin-pred op)
   (λ (v1 v2)
-    (if (and
-         (= (bf-precision)
-            (bigfloat-precision v1))
-         (= (bf-precision)
-            (bigfloat-precision v2)))
-        (op v1 v2)
-        (error "precision mismatches!"))))
+    (if (=
+         (bigfloat-precision v1)
+         (bigfloat-precision v2))
+        (op
+         (fake-bf-value v1)
+         (fake-bf-value v2))
+        (error "precision mismatches!~a"
+               (bigfloat-precision v1)
+               (bigfloat-precision v2)))))
 
 (define (bf> v1 v2)
   ((bf-bin-pred >) v1 v2))
@@ -112,9 +116,12 @@
     (if 
      (= (bf-precision)
         (bigfloat-precision v))
-     (op
-      (fake-bf-value v))
-     (error "precision mismatches!"))))
+     (mkbf
+      (op (fake-bf-value v))
+      (bf-precision))
+     (error "precision mismatches!~a"
+            (bf-precision)
+            (bigfloat-precision v)))))
 
 (define (bfsqrt v)
   ((bf-uni-arith sqrt) v))
@@ -127,19 +134,24 @@
             (bigfloat-precision v1))
          (= (bf-precision)
             (bigfloat-precision v2)))
-        (op
-         (fake-bf-value v1)
-         (fake-bf-value v2))
-        (error "precision mismatches!"))))
+        (mkbf
+         (op
+          (fake-bf-value v1)
+          (fake-bf-value v2))
+         (bf-precision))
+        (error "precision mismatches!~a"
+               (bf-precision)
+               (bigfloat-precision v1)
+               (bigfloat-precision v2)))))
 
 (define (bf+ v1 v2)
   ((bf-bin-arith +) v1 v2))
 (define (bf- v1 v2)
-  ((bf-bin-arith +) v1 v2))
+  ((bf-bin-arith -) v1 v2))
 (define (bf* v1 v2)
-  ((bf-bin-arith +) v1 v2))
+  ((bf-bin-arith *) v1 v2))
 (define (bf/ v1 v2)
-  ((bf-bin-arith +) v1 v2))
+  ((bf-bin-arith /) v1 v2))
 
 
 (define (bfcopy v)
@@ -151,7 +163,7 @@
     [(double-precision?) (mkbf
                           (fl fp)
                           (bf-precision))]
-    [else (error "unsupported precision!")]))
+    [else (error "unsupported precision!~a" (bf-precision))]))
 
 (define (bigfloat-signbit v)
   (define fp-val (fake-bf-value v))
@@ -164,7 +176,7 @@
     [(nan? fp-val) (error "what's the sign bit of a NaN?")]
     [(= precision single-precision) (get-signbit 32)]
     [(= precision double-precision) (get-signbit 64)]
-    [else (error "unsupported precision!")]))
+    [else (error "unsupported precision!~a" precision)]))
 
 (define (bigfloat->nat v)
   (define fp-val (fake-bf-value v))
@@ -177,7 +189,14 @@
     [(nan? fp-val) (error "what's the bit-representation of a NaN?")]
     [(= precision single-precision) (get-nat 4)]
     [(= precision double-precision) (get-nat 8)]
-    [else (error "unsupported precision!")]))
+    [else (error "unsupported precision!~a" precision)]))
 
 (define (nat->bigfloat v precision)
-  42)
+  (define (get-float bw)
+    (mkbf
+     (floating-point-bytes->real (integer->integer-bytes v bw #f))
+     precision))
+  (cond
+    [(= precision single-precision) (get-float 4)]
+    [(= precision double-precision) (get-float 8)]
+    [else (error "unsupported precision!~a" precision)]))

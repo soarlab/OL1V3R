@@ -195,11 +195,19 @@
 
 (define get/+inf
   (λ (exp-width sig-width)
-    (real->FloatingPoint exp-width sig-width +inf.0)))
+    (mkFP
+     exp-width
+     sig-width
+     (parameterize ([bf-precision sig-width])
+       (bf +inf.0)))))
 
 (define get/-inf
   (λ (exp-width sig-width)
-    (real->FloatingPoint exp-width sig-width -inf.0)))
+    (mkFP
+     exp-width
+     sig-width
+     (parameterize ([bf-precision sig-width])
+       (bf -inf.0)))))
 
 (define get/maximum-normal
   (λ (exp-width sig-width)
