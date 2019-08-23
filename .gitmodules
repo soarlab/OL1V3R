@@ -1,3 +1,3 @@
 [submodule "test/smt-comp/QF_FP"]
 	path = test/smt-comp/QF_FP
-	url = git@github.com:shaobo-he/QF_FP_OPT.git
+	url = https://github.com/shaobo-he/QF_FP_OPT.git
