@@ -62,6 +62,9 @@
      (make-immutable-hash)
      (hash-keys var-info))))
 
+(define (ordered-hash-keys h)
+ (hash-map h (lambda (k v) k) #t))
+
 (define randomize/Assignment
   (λ (var-info)
     (define initialize-var
@@ -73,18 +76,24 @@
            (cond
              [(bv-type? type)
               (random/bv (get/bv-type-width type))]
-             [(fp-type? type)
-              (let ([widths (get/fp-type-widths type)])
-                (random/fp
-                 (car widths)
-                 (cdr widths)))]
+              [(fp-type? type)
+              (let* ([widths (get/fp-type-widths type)]
+                     ;[rand-vector (pseudo-random-generator->vector (current-pseudo-random-generator))]
+                     [fp-val (random/fp
+                       (car widths)
+                       (cdr widths))])
+               (begin
+                ;(displayln rand-vector)
+                ;(displayln var-name)
+                ;(displayln fp-val)
+                fp-val))]
              [(bool-type? type)
               (random/bv 1)])
            ))))
       (foldl
        initialize-var
        (make-immutable-hash)
-       (hash-keys var-info))))
+       (ordered-hash-keys var-info))))
 
 (define (sls-vns var-info F c2 maxSteps wp initial-model)
   (define (sls/do i assignment ni nc)
@@ -102,6 +111,7 @@
                         candVars)))]
              [select/Move
               (λ (candVars)
+                ;(log-debug "candvars~a\n" candVars)
                 (define neighbors (get/neighbors candVars))
                 ; choose the neighbor with the highest score
                 (if (empty? neighbors)
@@ -130,7 +140,7 @@
                    [assert-scores (map (score c2 assignment) asserts)])
               (begin
                 (log-debug "=========================================")
-                (log-debug "~a\n" (map exact->inexact assert-scores))
+                ;(log-debug "~a\n" (map exact->inexact assert-scores))
                 (log-debug "~a\n" assignment)
                 (if (andmap (λ (s) (= s 1)) assert-scores)
                     ;; if sat, print models and return 'sat
@@ -144,14 +154,14 @@
                           (sls/do (+ i 1) (cdr newAssign) 1 nc)
                           ;; no improving candidate, randomize
                           (begin
-                            (log-debug "no improving candidate!~a\n" ni)
+                            ;(log-debug "no improving candidate!~a\n" ni)
                             (let ([new-ni (+ ni 1)])
                               (if (> new-ni nc)
                                   (begin
-                                    (log-debug "exhaust neighborhood relations!")
+                                    ;(log-debug "exhaust neighborhood relations!")
                                     (sls/do (+ i 1) (randomize/Assignment var-info) 1 nc))
                                   (begin
-                                    (log-debug "using relation~a\n" new-ni)
+                                    ;(log-debug "using relation~a\n" new-ni)
                                     (sls/do (+ i 1) assignment new-ni nc))))))))))]))
   (sls/do
    0

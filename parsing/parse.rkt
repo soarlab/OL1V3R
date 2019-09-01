@@ -90,6 +90,8 @@
       [`(∧ ,as ...) as]
       [_ `(,F)])))
 
+(define (set->ordered-list s)
+  (sort (set->list s) #:key symbol->string string<? ))
 
 (define get/vars
   (λ (F assignment)
@@ -106,7 +108,7 @@
                (if (hash-has-key? assignment F)
                    `(,F)
                    '()))])))
-    (set->list (list->set (get/vars/do F)))))
+    (set->ordered-list (list->set (get/vars/do F)))))
 
 (define get-reachable-vars
   (λ (F assignment)
