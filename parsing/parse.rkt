@@ -17,20 +17,16 @@
             (cond
               [(eq? c eof) '()]
               [else (cons c (parse-string^ fd))]))))
-      (parameterize ([current-readtable smt-read-table])
-        (parse-string^ fd)))))
+      (parameterize ([current-readtable smt-read-table]) (parse-string^ fd)))))
 
-(define file->sexp
-  (λ (fn)
-    (string->sexp (file->string fn))))
+(define file->sexp (λ (fn) (string->sexp (file->string fn))))
 
 (define get-formula
   (λ (cmds)
-    (let ([get-expr
-              (λ (cmd result)
-                (match cmd
-                  [`(assert, expr) (list '∧ (transform-expr expr) result)]
-                  [else result]))])
+    (let ([get-expr (λ (cmd result)
+                      (match cmd
+                        [`(assert ,expr) (list '∧ (transform-expr expr) result)]
+                        [else result]))])
       (foldl get-expr '⊤ cmds))))
 
 (define get-var-info
@@ -76,8 +72,7 @@
 (define get/fp-type-widths
   (λ (t)
     (match t
-      [`(_ FloatingPoint ,exp-width ,sig-width)
-       (cons exp-width sig-width)]
+      [`(_ FloatingPoint ,exp-width ,sig-width) (cons exp-width sig-width)]
       ['Float16 (cons 5 11)]
       ['Float32 (cons 8 24)]
       ['Float64 (cons 11 53)]
@@ -91,23 +86,18 @@
       [_ `(,F)])))
 
 (define (set->ordered-list s)
-  (sort (set->list s) #:key symbol->string string<? ))
+  (sort (set->list s) #:key symbol->string string<?))
 
 (define get/vars
   (λ (F assignment)
     (define get/vars/do
       (λ (F)
         (match F
-          [`(,fs ...)
-           (apply append (map (λ (f) (get/vars/do f)) fs))]
+          [`(,fs ...) (apply append (map (λ (f) (get/vars/do f)) fs))]
           [(struct FloatingPoint _) '()]
           [(struct BitVec _) '()]
           [_
-           (if (number? F)
-               '()
-               (if (hash-has-key? assignment F)
-                   `(,F)
-                   '()))])))
+           (if (number? F) '() (if (hash-has-key? assignment F) `(,F) '()))])))
     (set->ordered-list (list->set (get/vars/do F)))))
 
 (define get-reachable-vars
@@ -115,71 +105,49 @@
     (define get/vars/do
       (λ (F)
         (match F
-          [`(let ((,id ,binding) ...) ,expr)
+          [`(let ([,id ,binding] ...) ,expr)
            `(,@(apply append (map get/vars/do binding)) ,@(get/vars/do expr))]
-          [`(,op ,args ...)
-           (apply append (map get/vars/do args))]
+          [`(,op ,args ...) (apply append (map get/vars/do args))]
           [(struct FloatingPoint _) '()]
           [(struct BitVec _) '()]
-          [_
-           (if (and (symbol? F)
-                    (hash-has-key? assignment F))
-               `(,F)
-               '())])))
+          [_ (if (and (symbol? F) (hash-has-key? assignment F)) `(,F) '())])))
     (get/vars/do F)))
 
 (define build/bvconst
-  (λ (v w)
-    `(_
-      ,(string->symbol
-        (string-append "bv" (number->string v)))
-      ,w)))
+  (λ (v w) `(_ ,(string->symbol (string-append "bv" (number->string v))) ,w)))
 
 (define read-hex
   (λ (v p o1 o2 o3 o4)
     (define read-hex^
       (λ (p vs)
         (define c (peek-char p))
-        (if (or
-             (and (char<=? #\0 c)
-                  (char<=? c #\9))
-             (or
-              (and (char<=? #\a c)
-                   (char<=? c #\f))
-              (and (char<=? #\A c)
-                   (char<=? c #F))))
+        (if (or (and (char<=? #\0 c) (char<=? c #\9))
+                (or (and (char<=? #\a c) (char<=? c #\f))
+                    (and (char<=? #\A c) (char<=? c #F))))
             (begin
               (read-char p)
               (read-hex^ p (string-append vs (string c))))
             vs)))
     (let ([str (read-hex^ p "")])
-      (build/bvconst
-       (string->number (string-append "#x" str))
-       (* 4 (string-length str))))))
+      (build/bvconst (string->number (string-append "#x" str))
+                     (* 4 (string-length str))))))
 
 (define read-bin
   (λ (v p o1 o2 o3 o4)
     (define read-bin^
       (λ (p vs)
         (define c (peek-char p))
-        (if (and (char<=? #\0 c)
-                 (char<=? c #\1))
+        (if (and (char<=? #\0 c) (char<=? c #\1))
             (begin
               (read-char p)
               (read-bin^ p (string-append vs (string c))))
             vs)))
     (let ([str (read-bin^ p "")])
-      (build/bvconst
-       (string->number (string-append "#b" str))
-       (string-length str)))))
+      (build/bvconst (string->number (string-append "#b" str))
+                     (string-length str)))))
 
 (define smt-read-table
-  (make-readtable
-   (make-readtable
-    #f
-    #\x
-    'dispatch-macro
-    read-hex)
-   #\b
-   'dispatch-macro
-   read-bin))
+  (make-readtable (make-readtable #f #\x 'dispatch-macro read-hex)
+                  #\b
+                  'dispatch-macro
+                  read-bin))
