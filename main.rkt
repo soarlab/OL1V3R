@@ -19,6 +19,7 @@
            [try-real-models? (make-parameter #f)]
            [print-models? (make-parameter #f)]
            [elim-eqs? (make-parameter #f)]
+           [simplify? (make-parameter #t)]
            [vns (make-parameter #f)]
            [enable-log (make-parameter #f)]
            [file-to-analyze
@@ -64,13 +65,18 @@
               (try-real-models? #t)]
              ["--vns" ("Enable variable neighborhood search") (vns #t)]
              ["--elim-eqs" ("Enable Z3 `solve-eqs` tactics") (elim-eqs? #t)]
+             ["--no-simplify"
+              ("Disable z3 simplification preprocessing (jfs-opt equivalent)")
+              (simplify? #f)]
              ["--print-models" ("Print models") (print-models? #t)]
              ["--debug" ("Enable logger") (enable-log #t)]
              #:args (filename) ; expect one command-line argument: <filename>
              ; return the argument as a filename to compile
              filename)]
+           [simplified-file
+            (if (simplify?) (simplify-jfs file-to-analyze) file-to-analyze)]
            [input-file
-            (if (elim-eqs?) (eliminate-eqs file-to-analyze) file-to-analyze)]
+            (if (elim-eqs?) (eliminate-eqs simplified-file) simplified-file)]
            [script (file->sexp input-file)]
            [formula (remove-fpconst
                      (simplify (unnest (formula->nnf (remove-let-bindings
