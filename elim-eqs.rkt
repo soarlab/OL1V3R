@@ -34,11 +34,15 @@
   (call-with-output-file
    temp-file
    (λ (output-port)
-     ;; Strip any existing (check-sat) and append the tactic application, so
-     ;; this works even for benchmarks that omit (check-sat).
-     (display (string-append (string-replace raw-content "(check-sat)" "")
-                             "\n(apply " tactic ")\n")
-              output-port))
+     ;; Strip the trailing solver commands and append the tactic application.
+     ;; (exit) must be removed too, not just (check-sat): many SMT-LIB files end
+     ;; with `(check-sat) (exit)`, and a leftover (exit) makes z3 quit before
+     ;; reaching the appended tactic (empty output -> silent fallback).
+     (define stripped
+       (foldl (λ (s acc) (string-replace acc s ""))
+              raw-content
+              '("(check-sat)" "(exit)" "(get-model)" "(get-unsat-core)")))
+     (display (string-append stripped "\n(apply " tactic ")\n") output-port))
    #:mode 'text
    #:exists 'replace)
   (define z3-output
