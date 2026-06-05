@@ -2,7 +2,8 @@
 
 (require "parsing/parse.rkt"
          "parsing/transform.rkt"
-         "data/fp.rkt")
+         "data/fp.rkt"
+         "sls.rkt")
 
 (provide get-real-model
          real-model->fp-model)
@@ -32,15 +33,22 @@
     ['sat (model->assignment (second z3-output))]
     [_ #f]))
 
+;; Overlay the (numeric) real-model values onto an all-zeros assignment so that
+;; every variable is defined even when z3's model omits one or gives it a
+;; non-numeric value (e.g. an algebraic `root-obj` from nonlinear/division
+;; constraints, which we cannot convert to a floating-point literal).
 (define (real-model->fp-model real-model var-info)
-  (define (real->fp-by-type key value)
-    (define type (hash-ref var-info key))
-    (cond
-      [(fp-type? type)
-       (define widths (get/fp-type-widths type))
-       (cons key (real->FloatingPoint value (car widths) (cdr widths)))]
-      [else value]))
-  (make-immutable-hash (hash-map real-model real->fp-by-type)))
+  (foldl (λ (key model)
+           (define value (hash-ref real-model key))
+           (define type (hash-ref var-info key))
+           (if (and (fp-type? type) (real? value))
+               (let ([widths (get/fp-type-widths type)])
+                 (hash-set model
+                           key
+                           (real->FloatingPoint value (car widths) (cdr widths))))
+               model))
+         (initialize/Assignment var-info)
+         (hash-keys real-model)))
 
 (define (model->assignment sexp)
   (define (build-assignment exprs)
@@ -61,13 +69,18 @@
     (foldl (λ (expr assignment)
              (match expr
                [`(define-fun ,id () Real ,val)
-                (define new-val (rationalize val))
-                (hash-set assignment id (simple-eval new-val))]
-               [_ (error "unsupported model")]))
+                (define v (simple-eval (rationalize val)))
+                ;; skip values we cannot turn into a rational (e.g. root-obj)
+                (if (real? v) (hash-set assignment id v) assignment)]
+               ;; skip auxiliary definitions such as z3's `/0` division function
+               [_ assignment]))
            (make-immutable-hash)
            exprs))
   (match sexp
+    ;; z3 up to ~4.8 wraps the model as `(model (define-fun ...) ...)`.
     [`(model ,exprs ...) (build-assignment exprs)]
+    ;; newer z3 (incl. 4.16) prints a bare list `( (define-fun ...) ... )`.
+    [(list `(define-fun ,_ ...) ...) (build-assignment sexp)]
     [_ (error "unsupported model")]))
 
 ;(real->fp/file (vector-ref (current-command-line-arguments) 0))
