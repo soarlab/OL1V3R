@@ -267,7 +267,13 @@
                                   (extend-env (car binding)
                                               (do (car (cdr binding)) env)
                                               env))
-                            (cons (cons binding new-bindings) env))))
+                            ;; keep the term binding, but with the env (already
+                            ;; inlined boolean bindings) substituted into its
+                            ;; value -- otherwise an inlined symbol (z3's a!1)
+                            ;; leaks out unbound inside e.g. an `ite` condition.
+                            (cons (cons (list (car binding) binded-expr)
+                                        new-bindings)
+                                  env))))
                     (cons '() env)
                     bindings))
            (define new-bindings (car new-tuple))
