@@ -297,6 +297,22 @@
 (define fp≤ (fp/pred/bin bf<=))
 (define fp≥ (fp/pred/bin bf>=))
 
+;; ---- atom truth predicates: single source of truth shared by score.rkt
+;; (which returns score 1 exactly when these hold) and eval.rkt (which decides
+;; an `ite` condition with them). NaN comparisons are false; fp.eq treats
+;; +0 = -0; structural `=` is bit-identical (so +0 != -0).
+(define (fp.lt-true?  a b) (and (not (fp/nan? a)) (not (fp/nan? b)) (fp< a b)))
+(define (fp.leq-true? a b) (and (not (fp/nan? a)) (not (fp/nan? b)) (fp≤ a b)))
+(define (fp.gt-true?  a b) (and (not (fp/nan? a)) (not (fp/nan? b)) (fp> a b)))
+(define (fp.geq-true? a b) (and (not (fp/nan? a)) (not (fp/nan? b)) (fp≥ a b)))
+(define (fp.eq-true?  a b)
+  (and (not (fp/nan? a)) (not (fp/nan? b))
+       (or (and (fp/zero? a) (fp/zero? b))
+           (bv= (FloatingPoint->BitVec a) (FloatingPoint->BitVec b)))))
+(define (fp=-true? a b)
+  (or (and (fp/nan? a) (fp/nan? b))
+      (bv= (FloatingPoint->BitVec a) (FloatingPoint->BitVec b))))
+
 ;; floating-point related conversions
 ;; real->fp
 (define real->FloatingPoint

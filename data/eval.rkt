@@ -65,13 +65,11 @@
           [`(,op ...) ((displayln op) (error "unsupported operations"))]
           ;[else (get-value assignment be)])))
           [else (lookup be env)])))
-    ;; Hard-evaluate a boolean condition (for `ite`) to #t/#f, mirroring the
-    ;; truth conditions of score.rkt (an atom scores 1 iff true). Mutually
-    ;; recursive with eval^ for the term operands.
+    ;; Decide an `ite` condition's truth using the shared atom predicates from
+    ;; fp.rkt -- so this evaluator and score.rkt agree by construction, with no
+    ;; duplicated predicate logic. Mutually recursive with eval^ for operands.
     (define eval-bool
       (λ (be env)
-        (define (fpcmp op a b)
-          (and (not (fp/nan? a)) (not (fp/nan? b)) (op a b)))
         (match be
           ['⊤ #t]
           ['⊥ #f]
@@ -84,20 +82,14 @@
           [`(= ,a ,b)
            (let ([x (eval^ a env)] [y (eval^ b env)])
              (match x
-               [(struct FloatingPoint _)
-                (or (and (fp/nan? x) (fp/nan? y))
-                    (bv= (FloatingPoint->BitVec x) (FloatingPoint->BitVec y)))]
+               [(struct FloatingPoint _) (fp=-true? x y)]
                [_ (bv= x y)]))]
-          [`(fp.eq ,a ,b)
-           (let ([x (eval^ a env)] [y (eval^ b env)])
-             (cond [(or (fp/nan? x) (fp/nan? y)) #f]
-                   [(and (fp/zero? x) (fp/zero? y)) #t]
-                   [else (bv= (FloatingPoint->BitVec x) (FloatingPoint->BitVec y))]))]
-          [`(fp.lt ,a ,b) (fpcmp fp< (eval^ a env) (eval^ b env))]
-          [`(fp.leq ,a ,b) (fpcmp fp≤ (eval^ a env) (eval^ b env))]
-          [`(fp.gt ,a ,b) (fpcmp fp> (eval^ a env) (eval^ b env))]
-          [`(fp.geq ,a ,b) (fpcmp fp≥ (eval^ a env) (eval^ b env))]
-          [`(bvult ,a ,b) (bv< (eval^ a env) (eval^ b env))]
+          [`(fp.eq ,a ,b)  (fp.eq-true?  (eval^ a env) (eval^ b env))]
+          [`(fp.lt ,a ,b)  (fp.lt-true?  (eval^ a env) (eval^ b env))]
+          [`(fp.leq ,a ,b) (fp.leq-true? (eval^ a env) (eval^ b env))]
+          [`(fp.gt ,a ,b)  (fp.gt-true?  (eval^ a env) (eval^ b env))]
+          [`(fp.geq ,a ,b) (fp.geq-true? (eval^ a env) (eval^ b env))]
+          [`(bvult ,a ,b)  (bv< (eval^ a env) (eval^ b env))]
           ;; bare boolean term / fp.isX: eval^ yields a width-1 BV, true iff 1
           [_ (not (zero? (BitVec-value (eval^ be env))))])))
     (eval^ be env)))
