@@ -121,9 +121,10 @@
     (define read-hex^
       (λ (p vs)
         (define c (peek-char p))
-        (if (or (and (char<=? #\0 c) (char<=? c #\9))
-                (or (and (char<=? #\a c) (char<=? c #\f))
-                    (and (char<=? #\A c) (char<=? c #F))))
+        (if (and (char? c)
+                 (or (and (char<=? #\0 c) (char<=? c #\9))
+                     (and (char<=? #\a c) (char<=? c #\f))
+                     (and (char<=? #\A c) (char<=? c #\F))))
             (begin
               (read-char p)
               (read-hex^ p (string-append vs (string c))))
@@ -137,7 +138,7 @@
     (define read-bin^
       (λ (p vs)
         (define c (peek-char p))
-        (if (and (char<=? #\0 c) (char<=? c #\1))
+        (if (and (char? c) (char<=? #\0 c) (char<=? c #\1))
             (begin
               (read-char p)
               (read-bin^ p (string-append vs (string c))))
