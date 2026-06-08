@@ -83,9 +83,16 @@
                 (apply append
                        (map (λ (candVar)
                               (define val (get-value assignment candVar))
-                              (map ((curry update/Assignment) assignment
-                                                              candVar)
-                                   (get/fp-neighbors val ni)))
+                              ;; dispatch by type: fp vars use the ni-th VNS
+                              ;; neighborhood, bit-vector/Bool vars use their
+                              ;; (ni-independent) extended neighborhood.
+                              (define nbrs
+                                (match val
+                                  [(struct FloatingPoint _) (get/fp-neighbors val ni)]
+                                  [(struct BitVec _) (get/bv-extended-neighbors val)]
+                                  [_ '()]))
+                              (map ((curry update/Assignment) assignment candVar)
+                                   nbrs))
                             candVars)))]
              [select/Move (λ (candVars)
                             ;(log-debug "candvars~a\n" candVars)
