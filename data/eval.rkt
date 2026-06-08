@@ -44,12 +44,12 @@
            (mkBV op2
                  (string->number (substring (symbol->string op1)
                                             (string-length "bv"))))]
-          [`(fp.add ,rm ,op1 ,op2) (eval/fpadd (eval^ op1 env) (eval^ op2 env))]
-          [`(fp.sub ,rm ,op1 ,op2) (eval/fpsub (eval^ op1 env) (eval^ op2 env))]
-          [`(fp.mul ,rm ,op1 ,op2) (eval/fpmul (eval^ op1 env) (eval^ op2 env))]
-          [`(fp.div ,rm ,op1 ,op2) (eval/fpdiv (eval^ op1 env) (eval^ op2 env))]
+          [`(fp.add ,rm ,op1 ,op2) (eval/fpadd (rm->bf-mode rm) (eval^ op1 env) (eval^ op2 env))]
+          [`(fp.sub ,rm ,op1 ,op2) (eval/fpsub (rm->bf-mode rm) (eval^ op1 env) (eval^ op2 env))]
+          [`(fp.mul ,rm ,op1 ,op2) (eval/fpmul (rm->bf-mode rm) (eval^ op1 env) (eval^ op2 env))]
+          [`(fp.div ,rm ,op1 ,op2) (eval/fpdiv (rm->bf-mode rm) (eval^ op1 env) (eval^ op2 env))]
           [`(fp.neg ,op) (eval/fpneg (eval^ op env))]
-          [`(fp.sqrt ,rm ,op) (eval/fpsqrt (eval^ op env))]
+          [`(fp.sqrt ,rm ,op) (eval/fpsqrt (rm->bf-mode rm) (eval^ op env))]
           [`(fp.isNormal ,op) (mkBoolBV (fp/normal? (eval^ op env)))]
           [`(fp.isSubnormal ,op) (mkBoolBV (fp/subnormal? (eval^ op env)))]
           [`(fp.isZero ,op) (mkBoolBV (fp/zero? (eval^ op env)))]

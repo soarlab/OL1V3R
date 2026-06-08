@@ -220,3 +220,34 @@
                            (sls/do (+ i 1)
                                    (randomize/Assignment var-info))))))))])))
     (sls/do 0 initial-model)))
+
+;; RoundingMode variables are not searched; instead we enumerate the five
+;; rounding-mode constants in their place. For each of the 5^k combinations
+;; (RNE first, capped at 10000), substitute the chosen constants into `formula`
+;; and run `search` on the result; return the first sat (with the rm assignment
+;; appended to the model), otherwise unknown. `search` is a closure
+;; formula -> (cons 'sat models) | (cons 'unknown '()).
+(define (enumerate-rounding-modes rm-vars formula search)
+  (if (null? rm-vars)
+      (search formula)
+      (let* ([k (length rm-vars)]
+             [total (expt 5 k)]
+             [limit (min total 10000)])
+        (when (> total limit)
+          (eprintf "warning: ~a RoundingMode variables -> ~a combinations; trying ~a\n"
+                   k total limit))
+        (let loop ([idx 0])
+          (cond
+            [(>= idx limit) (cons 'unknown '())]
+            [else
+             ;; a rounding-mode constant per rm var, from the base-5 digits of idx
+             (define chosen
+               (for/list ([v (in-list rm-vars)] [i (in-naturals)])
+                 (list-ref ROUNDING-MODES (modulo (quotient idx (expt 5 i)) 5))))
+             (define subs (make-immutable-hash (map cons rm-vars chosen)))
+             (define result (search (substitute formula subs)))
+             (if (equal? (car result) 'sat)
+                 (cons 'sat
+                       (append (cdr result)
+                               (map (λ (v m) `(assert (= ,m ,v))) rm-vars chosen)))
+                 (loop (add1 idx)))])))))
