@@ -1,6 +1,6 @@
 #lang racket
 
-(require "parsing/parse.rkt")
+(require "../parsing/parse.rkt")
 (provide eliminate-eqs simplify-jfs)
 
 ;; The `jfs-opt --standard-passes` pipeline, reproduced with z3 tactics alone.

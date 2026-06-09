@@ -9,6 +9,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: true
 
       # Z3 is needed at runtime for the default `simplify` pass and for
       # --elim-eqs / --try-real-models (OL1V3R shells out to `z3`).
@@ -27,7 +29,7 @@ jobs:
         run: raco make main.rkt
 
       - name: Unit tests
-        run: racket test/data/fp-test.rkt
+        run: raco test test/
 
       - name: Smoke tests (end-to-end solve)
         run: |

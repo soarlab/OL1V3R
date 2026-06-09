@@ -2,11 +2,11 @@
 
 (provide (all-defined-out))
 
-(require "sls.rkt"
+(require "src/sls.rkt"
          "parsing/parse.rkt"
          "parsing/transform.rkt"
-         "fp2real.rkt"
-         "elim-eqs.rkt"
+         "src/fp2real.rkt"
+         "src/elim-eqs.rkt"
          racket/cmdline)
 
 (define main

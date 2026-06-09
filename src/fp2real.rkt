@@ -1,8 +1,8 @@
 #lang racket
 
-(require "parsing/parse.rkt"
-         "parsing/transform.rkt"
-         "data/fp.rkt"
+(require "../parsing/parse.rkt"
+         "../parsing/transform.rkt"
+         "../data/fp.rkt"
          "sls.rkt")
 
 (provide get-real-model

@@ -27,10 +27,10 @@
            (define new-env
              (foldl
               (λ (binding env)
-                (extend-env (car binding) (eval (car (cdr binding)) env) env))
+                (extend-env (car binding) (eval^ (car (cdr binding)) env) env))
               env
               bindings))
-           (eval body new-env)]
+           (eval^ body new-env)]
           [`(bvneg ,op) (eval/bvneg (eval^ op env))]
           [`(bvadd ,op1 ,op2) (eval/bvadd (eval^ op1 env) (eval^ op2 env))]
           [`(bvsub ,op1 ,op2) (eval/bvsub (eval^ op1 env) (eval^ op2 env))]
