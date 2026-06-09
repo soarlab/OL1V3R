@@ -2,8 +2,8 @@
 
 (require "../../parsing/parse.rkt")
 (require "../../parsing/transform.rkt")
-(require "../../score.rkt")
-(require "../../sls.rkt")
+(require "../../src/score.rkt")
+(require "../../src/sls.rkt")
 (require "../../data/fp.rkt")
 
 (define test-script

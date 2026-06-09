@@ -1,10 +1,10 @@
 #lang racket
 
-(require "parsing/parse.rkt"
+(require "../parsing/parse.rkt"
          "score.rkt"
-         "data/bit-vec.rkt"
-         "data/fp.rkt"
-         "data/eval.rkt")
+         "../data/bit-vec.rkt"
+         "../data/fp.rkt"
+         "../data/eval.rkt")
 
 (provide (all-defined-out))
 

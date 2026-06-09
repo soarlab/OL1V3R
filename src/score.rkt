@@ -1,8 +1,8 @@
 #lang racket
 
-(require "data/bit-vec.rkt"
-         "data/fp.rkt"
-         "data/eval.rkt")
+(require "../data/bit-vec.rkt"
+         "../data/fp.rkt"
+         "../data/eval.rkt")
 
 (provide (all-defined-out))
 
