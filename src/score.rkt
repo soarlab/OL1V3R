@@ -176,7 +176,7 @@
       [`(¬ (fp.leq ,op1 ,op2)) (score2 op1 op2 assignment env (score/fp!leq c))]
       [`(fp.leq ,op1 ,op2) (score2 op1 op2 assignment env (score/fpleq c))]
       [`(¬ (fp.gt ,op1 ,op2)) (score2 op1 op2 assignment env (score/fp!gt c))]
-      [`(fp.gt ,op1 ,op2) (score2 op1 op2 assignment (score/fpgt c))]
+      [`(fp.gt ,op1 ,op2) (score2 op1 op2 assignment env (score/fpgt c))]
       [`(¬ (fp.geq ,op1 ,op2)) (score2 op1 op2 assignment env (score/fp!geq c))]
       [`(fp.geq ,op1 ,op2) (score2 op1 op2 assignment env (score/fpgeq c))]
       [`(¬ (fp.eq ,op1 ,op2)) (score2 op1 op2 assignment env score/fp!eq)]
