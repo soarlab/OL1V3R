@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Z3 is needed at runtime for the default `simplify` pass and for
+      # --elim-eqs / --try-real-models (OL1V3R shells out to `z3`).
+      - name: Install Z3
+        run: sudo apt-get update && sudo apt-get install -y z3
+
+      - name: Set up Racket
+        uses: Bogdanp/setup-racket@v1.11
+        with:
+          architecture: x64
+          distribution: full
+          variant: CS
+          version: stable
+
+      - name: Compile
+        run: raco make main.rkt
+
+      - name: Unit tests
+        run: racket test/data/fp-test.rkt
+
+      - name: Smoke tests (end-to-end solve)
+        run: |
+          set -euo pipefail
+          for f in test/smoke/sat-rm.smt2 test/smoke/sat-ite.smt2; do
+            echo "== $f =="
+            out=$(racket main.rkt --vns --elim-eqs --try-real-models --step 1000000 "$f")
+            echo "$out"
+            grep -qx sat <<<"$out"
+          done
