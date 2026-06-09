@@ -69,6 +69,27 @@
       ['Float128 #t]
       [_ #f])))
 
+(define rm-type?
+  (λ (t) (match t ['RoundingMode #t] [_ #f])))
+
+;; SMT-LIB rounding-mode constants enumerated in place of RoundingMode
+;; variables, RNE first (the IEEE-754 default). roundNearestTiesToAway is
+;; intentionally omitted: Racket's bigfloat has no ties-to-away mode and
+;; approximating it would be unsound (see rm->bf-mode in data/fp.rkt), so
+;; OL1V3R is incomplete on that mode.
+(define ROUNDING-MODES
+  '(roundNearestTiesToEven roundTowardZero roundTowardPositive
+    roundTowardNegative))
+
+;; Replace symbols according to the hash `subs`. Used to substitute a
+;; RoundingMode variable with a concrete rounding-mode constant before search;
+;; floats/bitvecs and other atoms are left untouched.
+(define (substitute f subs)
+  (cond
+    [(symbol? f) (hash-ref subs f f)]
+    [(list? f) (map (λ (x) (substitute x subs)) f)]
+    [else f]))
+
 (define get/fp-type-widths
   (λ (t)
     (match t
@@ -121,9 +142,10 @@
     (define read-hex^
       (λ (p vs)
         (define c (peek-char p))
-        (if (or (and (char<=? #\0 c) (char<=? c #\9))
-                (or (and (char<=? #\a c) (char<=? c #\f))
-                    (and (char<=? #\A c) (char<=? c #F))))
+        (if (and (char? c)
+                 (or (and (char<=? #\0 c) (char<=? c #\9))
+                     (and (char<=? #\a c) (char<=? c #\f))
+                     (and (char<=? #\A c) (char<=? c #\F))))
             (begin
               (read-char p)
               (read-hex^ p (string-append vs (string c))))
@@ -137,7 +159,7 @@
     (define read-bin^
       (λ (p vs)
         (define c (peek-char p))
-        (if (and (char<=? #\0 c) (char<=? c #\1))
+        (if (and (char? c) (char<=? #\0 c) (char<=? c #\1))
             (begin
               (read-char p)
               (read-bin^ p (string-append vs (string c))))
@@ -147,7 +169,14 @@
                      (string-length str)))))
 
 (define smt-read-table
-  (make-readtable (make-readtable #f #\x 'dispatch-macro read-hex)
-                  #\b
-                  'dispatch-macro
-                  read-bin))
+  ;; `;` must be a symbol constituent, not a comment: z3's tactic output prints
+  ;; CBMC-style symbols verbatim (e.g. goto_symex::&92;guard#1), and a default
+  ;; `;` would comment out the rest of the line incl. the closing paren.
+  (make-readtable
+   (make-readtable (make-readtable #f #\x 'dispatch-macro read-hex)
+                   #\b
+                   'dispatch-macro
+                   read-bin)
+   #\;
+   #\a
+   #f))

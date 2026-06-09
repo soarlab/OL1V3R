@@ -97,23 +97,28 @@
                                   (loop)))))
                 (current-logger oliver-logger)))
             42)
+        ;; RoundingMode variables are not searched; they are enumerated over the
+        ;; five rounding-mode constants below. Split them off the search var-info.
+        (define rm-vars
+          (filter (λ (v) (rm-type? (hash-ref var-info v))) (hash-keys var-info)))
+        (define search-var-info
+          (foldl (λ (v h) (hash-remove h v)) var-info rm-vars))
         (define initial-models
           (let ([models (if (start-with-zeros?)
-                            (initialize/Assignment var-info)
-                            (randomize/Assignment var-info))])
+                            (initialize/Assignment search-var-info)
+                            (randomize/Assignment search-var-info))])
             (if (try-real-models?)
                 (let ([real-models (get-real-model input-file)])
                   (if real-models
-                      (real-model->fp-model real-models var-info)
+                      (real-model->fp-model real-models search-var-info)
                       models))
                 models)))
-        (define result
-          ((if (vns) sls-vns sls) var-info
-                                  formula
-                                  (c2)
-                                  (step)
-                                  (wp)
-                                  initial-models))
+        (define run-sls
+          (λ (f) ((if (vns) sls-vns sls)
+                  search-var-info f (c2) (step) (wp) initial-models)))
+        ;; Enumerate the rounding-mode constants in place of the rm variables
+        ;; (a no-op when there are none); see sls.rkt.
+        (define result (enumerate-rounding-modes rm-vars formula run-sls))
         (if (equal? (car result) 'sat)
             (begin
               (displayln "sat")

@@ -22,9 +22,8 @@
 ; fp's equality
 (define (score/fp= c fp1 fp2)
   (cond
-    [(and (fp/nan? fp1) (fp/nan? fp2)) 1]
+    [(fp=-true? fp1 fp2) 1]
     [(or (fp/nan? fp1) (fp/nan? fp2)) 0]
-    [(bv= (FloatingPoint->BitVec fp1) (FloatingPoint->BitVec fp2)) 1]
     [else (fp-dist-score c fp1 fp2 #f)]))
 
 (define ((score/= c) v1 v2)
@@ -37,12 +36,7 @@
 (define score/bv≠ (λ (bv1 bv2) (if (bv= bv1 bv2) 0 1)))
 ; fp's inequality
 (define score/fp≠
-  (λ (fp1 fp2)
-    (cond
-      [(and (fp/nan? fp1) (fp/nan? fp2)) 0]
-      [(or (fp/nan? fp1) (fp/nan? fp2)) 1]
-      [else
-       (score/bv≠ (FloatingPoint->BitVec fp1) (FloatingPoint->BitVec fp2))])))
+  (λ (fp1 fp2) (if (fp=-true? fp1 fp2) 0 1)))
 
 (define (score/≠ v1 v2)
   (match v1
@@ -53,15 +47,12 @@
 ; fp's equality/inequality
 (define ((score/fpeq c) fp1 fp2)
   (cond
+    [(fp.eq-true? fp1 fp2) 1]
     [(or (fp/nan? fp1) (fp/nan? fp2)) 0]
-    [(and (fp/zero? fp1) (fp/zero? fp2)) 1]
-    [else (score/fp= c fp1 fp2)]))
+    [else (fp-dist-score c fp1 fp2 #f)]))
 
 (define (score/fp!eq fp1 fp2)
-  (cond
-    [(or (fp/nan? fp1) (fp/nan? fp2)) 1]
-    [(and (fp/zero? fp1) (fp/zero? fp2)) 0]
-    [else (score/bv≠ (FloatingPoint->BitVec fp1) (FloatingPoint->BitVec fp2))]))
+  (if (fp.eq-true? fp1 fp2) 0 1))
 
 (define bv-dist-score
   (λ (c bv1 bv2 eq)
@@ -111,62 +102,40 @@
 
 ; note that we're not pursuing a minimal set of operations here
 ; instead we give each operation its score as well as for its negation
-; fp's lt
+; fp's lt -- truth conditions live in fp.rkt (`*-true?`) and are shared with
+; eval's `ite`, so each is defined once. A satisfied atom still scores exactly 1;
+; the NaN and distance cases are unchanged.
 (define ((score/fplt c) fp1 fp2)
-  (cond
-    [(or (fp/nan? fp1) (fp/nan? fp2)) 0]
-    [(fp< fp1 fp2) 1]
-    ;; fp1 >= fp2 and fp1 != nan and fp2 != nan
-    [else (fp-dist-score c fp1 fp2 #t)]))
+  (cond [(fp.lt-true? fp1 fp2) 1]
+        [(or (fp/nan? fp1) (fp/nan? fp2)) 0]
+        [else (fp-dist-score c fp1 fp2 #t)]))
 
 (define ((score/fp!lt c) fp1 fp2)
-  (cond
-    [(or (fp/nan? fp1) (fp/nan? fp2)) 1]
-    [(fp≥ fp1 fp2) 1]
-    ;; fp1 < fp2 and fp1 != nan and fp2 != nan
-    [else (fp-dist-score c fp1 fp2 #f)]))
+  (if (fp.lt-true? fp1 fp2) (fp-dist-score c fp1 fp2 #f) 1))
 
 (define ((score/fpleq c) fp1 fp2)
-  (cond
-    [(or (fp/nan? fp1) (fp/nan? fp2)) 0]
-    [(fp≤ fp1 fp2) 1]
-    ;; fp1 > fp2 and fp1 != nan and fp2 != nan
-    [else (fp-dist-score c fp1 fp2 #f)]))
+  (cond [(fp.leq-true? fp1 fp2) 1]
+        [(or (fp/nan? fp1) (fp/nan? fp2)) 0]
+        [else (fp-dist-score c fp1 fp2 #f)]))
 
 (define ((score/fp!leq c) fp1 fp2)
-  (cond
-    [(or (fp/nan? fp1) (fp/nan? fp2)) 1]
-    [(fp> fp1 fp2) 1]
-    ;; fp1 <= fp2 and fp1 != nan and fp2 != nan
-    [else (fp-dist-score c fp1 fp2 #t)]))
+  (if (fp.leq-true? fp1 fp2) (fp-dist-score c fp1 fp2 #t) 1))
 
 (define ((score/fpgt c) fp1 fp2)
-  (cond
-    [(or (fp/nan? fp1) (fp/nan? fp2)) 0]
-    [(fp> fp1 fp2) 1]
-    ;; fp1 <= fp2 and fp1 != nan and fp2 != nan
-    [else (fp-dist-score c fp1 fp2 #t)]))
+  (cond [(fp.gt-true? fp1 fp2) 1]
+        [(or (fp/nan? fp1) (fp/nan? fp2)) 0]
+        [else (fp-dist-score c fp1 fp2 #t)]))
 
 (define ((score/fp!gt c) fp1 fp2)
-  (cond
-    [(or (fp/nan? fp1) (fp/nan? fp2)) 1]
-    [(fp≤ fp1 fp2) 1]
-    ;; fp1 > fp2 and fp1 != nan and fp2 != nan
-    [else (fp-dist-score c fp1 fp2 #f)]))
+  (if (fp.gt-true? fp1 fp2) (fp-dist-score c fp1 fp2 #f) 1))
 
 (define ((score/fpgeq c) fp1 fp2)
-  (cond
-    [(or (fp/nan? fp1) (fp/nan? fp2)) 0]
-    [(fp≥ fp1 fp2) 1]
-    ;; fp1 < fp2 and fp1 != nan and fp2 != nan
-    [else (fp-dist-score c fp1 fp2 #f)]))
+  (cond [(fp.geq-true? fp1 fp2) 1]
+        [(or (fp/nan? fp1) (fp/nan? fp2)) 0]
+        [else (fp-dist-score c fp1 fp2 #f)]))
 
 (define ((score/fp!geq c) fp1 fp2)
-  (cond
-    [(or (fp/nan? fp1) (fp/nan? fp2)) 1]
-    [(fp< fp1 fp2) 1]
-    ;; fp1 >= fp2 and fp1 != nan and fp2 != nan
-    [else (fp-dist-score c fp1 fp2 #t)]))
+  (if (fp.geq-true? fp1 fp2) (fp-dist-score c fp1 fp2 #t) 1))
 
 (define score2
   (λ (op1 op2 assignment env score-bf)

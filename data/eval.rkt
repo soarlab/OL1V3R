@@ -44,12 +44,12 @@
            (mkBV op2
                  (string->number (substring (symbol->string op1)
                                             (string-length "bv"))))]
-          [`(fp.add ,rm ,op1 ,op2) (eval/fpadd (eval^ op1 env) (eval^ op2 env))]
-          [`(fp.sub ,rm ,op1 ,op2) (eval/fpsub (eval^ op1 env) (eval^ op2 env))]
-          [`(fp.mul ,rm ,op1 ,op2) (eval/fpmul (eval^ op1 env) (eval^ op2 env))]
-          [`(fp.div ,rm ,op1 ,op2) (eval/fpdiv (eval^ op1 env) (eval^ op2 env))]
+          [`(fp.add ,rm ,op1 ,op2) (eval/fpadd (rm->bf-mode rm) (eval^ op1 env) (eval^ op2 env))]
+          [`(fp.sub ,rm ,op1 ,op2) (eval/fpsub (rm->bf-mode rm) (eval^ op1 env) (eval^ op2 env))]
+          [`(fp.mul ,rm ,op1 ,op2) (eval/fpmul (rm->bf-mode rm) (eval^ op1 env) (eval^ op2 env))]
+          [`(fp.div ,rm ,op1 ,op2) (eval/fpdiv (rm->bf-mode rm) (eval^ op1 env) (eval^ op2 env))]
           [`(fp.neg ,op) (eval/fpneg (eval^ op env))]
-          [`(fp.sqrt ,rm ,op) (eval/fpsqrt (eval^ op env))]
+          [`(fp.sqrt ,rm ,op) (eval/fpsqrt (rm->bf-mode rm) (eval^ op env))]
           [`(fp.isNormal ,op) (mkBoolBV (fp/normal? (eval^ op env)))]
           [`(fp.isSubnormal ,op) (mkBoolBV (fp/subnormal? (eval^ op env)))]
           [`(fp.isZero ,op) (mkBoolBV (fp/zero? (eval^ op env)))]
@@ -58,9 +58,38 @@
           [`(fp.isInfinite ,op) (mkBoolBV (fp/infinity? (eval^ op env)))]
           [`((_ to_fp ,new-exp-width ,new-sig-width) ,rm ,op)
            (eval/fpconv (eval^ op env) new-exp-width new-sig-width)]
+          [`(ite ,c ,thn ,els)
+           (if (eval-bool c env) (eval^ thn env) (eval^ els env))]
           [(struct FloatingPoint _) be]
           [(struct BitVec _) be]
           [`(,op ...) ((displayln op) (error "unsupported operations"))]
           ;[else (get-value assignment be)])))
           [else (lookup be env)])))
+    ;; Decide an `ite` condition's truth using the shared atom predicates from
+    ;; fp.rkt -- so this evaluator and score.rkt agree by construction, with no
+    ;; duplicated predicate logic. Mutually recursive with eval^ for operands.
+    (define eval-bool
+      (λ (be env)
+        (match be
+          ['⊤ #t]
+          ['⊥ #f]
+          [`(¬ ,b) (not (eval-bool b env))]
+          [`(not ,b) (not (eval-bool b env))]
+          [`(∧ ,bs ...) (andmap (λ (b) (eval-bool b env)) bs)]
+          [`(and ,bs ...) (andmap (λ (b) (eval-bool b env)) bs)]
+          [`(∨ ,bs ...) (ormap (λ (b) (eval-bool b env)) bs)]
+          [`(or ,bs ...) (ormap (λ (b) (eval-bool b env)) bs)]
+          [`(= ,a ,b)
+           (let ([x (eval^ a env)] [y (eval^ b env)])
+             (match x
+               [(struct FloatingPoint _) (fp=-true? x y)]
+               [_ (bv= x y)]))]
+          [`(fp.eq ,a ,b)  (fp.eq-true?  (eval^ a env) (eval^ b env))]
+          [`(fp.lt ,a ,b)  (fp.lt-true?  (eval^ a env) (eval^ b env))]
+          [`(fp.leq ,a ,b) (fp.leq-true? (eval^ a env) (eval^ b env))]
+          [`(fp.gt ,a ,b)  (fp.gt-true?  (eval^ a env) (eval^ b env))]
+          [`(fp.geq ,a ,b) (fp.geq-true? (eval^ a env) (eval^ b env))]
+          [`(bvult ,a ,b)  (bv< (eval^ a env) (eval^ b env))]
+          ;; bare boolean term / fp.isX: eval^ yields a width-1 BV, true iff 1
+          [_ (not (zero? (BitVec-value (eval^ be env))))])))
     (eval^ be env)))

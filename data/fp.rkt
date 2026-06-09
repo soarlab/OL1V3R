@@ -62,7 +62,8 @@
       (real->FloatingPoint 2.0
                            (FloatingPoint-exp-width fp)
                            (FloatingPoint-sig-width fp)))
-    `(,(eval/fpmul fp two) ,(eval/fpdiv fp two))))
+    ;; neighbor doubling/halving: rounding mode is irrelevant here, use nearest
+    `(,(eval/fpmul 'nearest fp two) ,(eval/fpdiv 'nearest fp two))))
 
 (define (sig/± fp)
   (define exp-width (FloatingPoint-exp-width fp))
@@ -181,7 +182,24 @@
      exp-width
      sig-width)))
 
-(define ((eval/fparith/binop op) fp1 fp2)
+;; An SMT rounding-mode constant -> a Racket bigfloat rounding mode.
+;;
+;; LIMITATION: Racket's bigfloat has no ties-to-away mode, so we cannot honor
+;; roundNearestTiesToAway. We deliberately do NOT approximate it as 'nearest --
+;; that would round ties the wrong way and could report a spurious model (an
+;; unsoundness). Instead we refuse it here and omit it from the rm-variable
+;; enumeration (see ROUNDING-MODES in parse.rkt). OL1V3R is therefore incomplete
+;; on RNA: instances that require ties-to-away are not solved. (None occur in our
+;; evaluation set.)
+(define (rm->bf-mode rm)
+  (case rm
+    [(roundNearestTiesToEven RNE) 'nearest]
+    [(roundTowardZero RTZ) 'zero]
+    [(roundTowardPositive RTP) 'up]
+    [(roundTowardNegative RTN) 'down]
+    [else (error "unsupported rounding mode (no bigfloat equivalent):" rm)]))
+
+(define ((eval/fparith/binop op) mode fp1 fp2)
   (define v1 (FloatingPoint-value fp1))
   (define v2 (FloatingPoint-value fp2))
   (define exp-w-1 (FloatingPoint-exp-width fp1))
@@ -190,8 +208,9 @@
   (define sig-w-2 (FloatingPoint-sig-width fp2))
   (if (and (= (bigfloat-precision v1) (bigfloat-precision v2))
            (and (= exp-w-1 exp-w-2) (= sig-w-1 sig-w-2)))
-      ;; apply arithmetic
-      (let ([result (parameterize ([bf-precision sig-w-1]) (op v1 v2))])
+      ;; apply arithmetic under the requested rounding mode
+      (let ([result (parameterize ([bf-precision sig-w-1] [bf-rounding-mode mode])
+                      (op v1 v2))])
         (cond
           [(fp/result-infinity? result exp-w-1 sig-w-1)
            (if (bfpositive? result)
@@ -210,7 +229,7 @@
 (define eval/fpmul (eval/fparith/binop bf*))
 (define eval/fpdiv (eval/fparith/binop bf/))
 
-(define eval/fpsqrt (λ (fp) ((eval/fparith/binop (λ (f s) (bfsqrt f))) fp fp)))
+(define eval/fpsqrt (λ (mode fp) ((eval/fparith/binop (λ (f s) (bfsqrt f))) mode fp fp)))
 
 (define eval/fpabs
   (λ (fp)
@@ -227,7 +246,7 @@
           (parameterize ([bf-precision sig-width])
             (bf* (bf -1.0) (FloatingPoint-value fp))))))
 
-(define fp/prune (λ (fp) ((eval/fparith/binop (λ (f s) f)) fp fp)))
+(define fp/prune (λ (fp) ((eval/fparith/binop (λ (f s) f)) 'nearest fp fp)))
 
 (define eval/fpconv
   (λ (fp dest-exp-width dest-sig-width)
@@ -296,6 +315,25 @@
 (define fp> (fp/pred/bin bf>))
 (define fp≤ (fp/pred/bin bf<=))
 (define fp≥ (fp/pred/bin bf>=))
+
+;; ---- atom truth predicates: single source of truth shared by score.rkt
+;; (which returns score 1 exactly when these hold) and eval.rkt (which decides
+;; an `ite` condition with them). NaN comparisons are false; fp.eq treats
+;; +0 = -0; structural `=` is bit-identical (so +0 != -0).
+(define (fp.lt-true?  a b) (and (not (fp/nan? a)) (not (fp/nan? b)) (fp< a b)))
+(define (fp.leq-true? a b) (and (not (fp/nan? a)) (not (fp/nan? b)) (fp≤ a b)))
+(define (fp.gt-true?  a b) (and (not (fp/nan? a)) (not (fp/nan? b)) (fp> a b)))
+(define (fp.geq-true? a b) (and (not (fp/nan? a)) (not (fp/nan? b)) (fp≥ a b)))
+(define (fp.eq-true?  a b)
+  (and (not (fp/nan? a)) (not (fp/nan? b))
+       (or (and (fp/zero? a) (fp/zero? b))
+           (bv= (FloatingPoint->BitVec a) (FloatingPoint->BitVec b)))))
+(define (fp=-true? a b)
+  (or (and (fp/nan? a) (fp/nan? b))
+      ;; only reach for the bit pattern when neither is NaN: NaN has no unique
+      ;; bv representation, so FloatingPoint->BitVec would error.
+      (and (not (fp/nan? a)) (not (fp/nan? b))
+           (bv= (FloatingPoint->BitVec a) (FloatingPoint->BitVec b)))))
 
 ;; floating-point related conversions
 ;; real->fp
