@@ -235,7 +235,10 @@
   (λ (fp)
     (define exp-width (FloatingPoint-exp-width fp))
     (define sig-width (FloatingPoint-sig-width fp))
-    (mkFP exp-width sig-width (bfabs (FloatingPoint-value fp)))))
+    (mkFP exp-width
+          sig-width
+          (parameterize ([bf-precision sig-width])
+            (bfabs (FloatingPoint-value fp))))))
 
 (define eval/fpneg
   (λ (fp)
