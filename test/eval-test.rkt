@@ -31,11 +31,18 @@
                  (check-equal? (BitVec-value (eval '(ite (= (_ bv3 4) (_ bv2 4)) (_ bv1 4) (_ bv0 4)) (make-immutable-hash) env)) 0)))
    (test-suite "Evaluate floating-point operations"
                (let ([env `((f1 . ,(real->FloatingPoint 1.0 5 11))
-                            (f2 . ,(real->FloatingPoint 2.0 5 11)))])
+                            (f2 . ,(real->FloatingPoint 2.0 5 11))
+                            (fneg . ,(real->FloatingPoint -3.0 5 11)))])
                  (check-equal? (fp/positive? (eval '(fp.add roundNearestTiesToEven f1 f2) (make-immutable-hash) env)) #t)
                  ; fp.isPositive returns a width-1 BV
                  (check-equal? (BitVec-value (eval '(fp.isPositive f1) (make-immutable-hash) env)) 1)
-                 (check-equal? (BitVec-value (eval '(fp.isNormal f1) (make-immutable-hash) env)) 1)))
+                 (check-equal? (BitVec-value (eval '(fp.isNormal f1) (make-immutable-hash) env)) 1)
+                 ; fp.abs: |-3| is positive and equals 3; |x| = x for positive x
+                 (check-equal? (fp/positive? (eval '(fp.abs fneg) (make-immutable-hash) env)) #t)
+                 (check-equal? (fp=-true? (eval '(fp.abs fneg) (make-immutable-hash) env)
+                                          (real->FloatingPoint 3.0 5 11)) #t)
+                 (check-equal? (fp=-true? (eval '(fp.abs f1) (make-immutable-hash) env)
+                                          (real->FloatingPoint 1.0 5 11)) #t)))
    ))
 
 ;; exit non-zero on any failure/error so CI fails loudly

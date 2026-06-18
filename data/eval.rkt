@@ -49,6 +49,7 @@
           [`(fp.mul ,rm ,op1 ,op2) (eval/fpmul (rm->bf-mode rm) (eval^ op1 env) (eval^ op2 env))]
           [`(fp.div ,rm ,op1 ,op2) (eval/fpdiv (rm->bf-mode rm) (eval^ op1 env) (eval^ op2 env))]
           [`(fp.neg ,op) (eval/fpneg (eval^ op env))]
+          [`(fp.abs ,op) (eval/fpabs (eval^ op env))]
           [`(fp.sqrt ,rm ,op) (eval/fpsqrt (rm->bf-mode rm) (eval^ op env))]
           [`(fp.isNormal ,op) (mkBoolBV (fp/normal? (eval^ op env)))]
           [`(fp.isSubnormal ,op) (mkBoolBV (fp/subnormal? (eval^ op env)))]
