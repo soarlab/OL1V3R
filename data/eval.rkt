@@ -58,7 +58,7 @@
           [`(fp.isNaN ,op) (mkBoolBV (fp/nan? (eval^ op env)))]
           [`(fp.isInfinite ,op) (mkBoolBV (fp/infinity? (eval^ op env)))]
           [`((_ to_fp ,new-exp-width ,new-sig-width) ,rm ,op)
-           (eval/fpconv (eval^ op env) new-exp-width new-sig-width)]
+           (eval/fpconv (eval^ op env) new-exp-width new-sig-width (rm->bf-mode rm))]
           [`(ite ,c ,thn ,els)
            (if (eval-bool c env) (eval^ thn env) (eval^ els env))]
           [(struct FloatingPoint _) be]
