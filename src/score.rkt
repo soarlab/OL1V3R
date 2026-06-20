@@ -24,7 +24,11 @@
   (cond
     [(fp=-true? fp1 fp2) 1]
     [(or (fp/nan? fp1) (fp/nan? fp2)) 0]
-    [else (fp-dist-score c fp1 fp2 #f)]))
+    ;; eq? = #t so any non-bit-equal pair scores strictly < 1. With #f, +0 and -0
+    ;; (numerically distance 0 but bit-distinct, so fp=-true? above is #f) score
+    ;; exactly c — which is 1 at --c2 1, wrongly marking (= +0 -0) satisfiable
+    ;; (SMT = is bit equality). True equalities are caught by fp=-true? above.
+    [else (fp-dist-score c fp1 fp2 #t)]))
 
 (define ((score/= c) v1 v2)
   (match v1

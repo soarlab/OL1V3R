@@ -128,27 +128,87 @@
   (append flip-sig (sig/± fp)))
 
 ;; floating-point arithmetic
+
+;; Round the positive integer ratio num/den to an integer, directed by the
+;; bigfloat rounding mode and the value's sign `neg`. Mirrors the Rust
+;; round_rational for the four modes bigfloat supports (RNA is refused upstream).
+(define (round-ratio-directed num den mode neg)
+  (define-values (q r) (quotient/remainder num den))
+  (cond
+    [(zero? r) q]
+    [else
+     (define up?
+       (case mode
+         [(zero) #f]                ; toward zero: truncate the magnitude
+         [(up)   (not neg)]         ; toward +inf: round magnitude up iff positive
+         [(down) neg]               ; toward -inf: round magnitude up iff negative
+         [(nearest)
+          (let ([2r (* 2 r)])
+            (cond [(< 2r den) #f] [(> 2r den) #t] [else (odd? q)]))] ; ties to even
+         [else #f]))
+     (if up? (+ q 1) q)]))
+
+;; Round a bigfloat once onto the subnormal grid, honoring `mode`. `v` must carry
+;; enough precision that this single grid rounding is correctly rounded (callers
+;; recompute at 2*sig+2 bits), so there is no double-rounding.
 (define fp/round-to-subnormal
-  (λ (v exp-width sig-width)
+  (λ (v exp-width sig-width mode)
     (define subnormal-min
       (FloatingPoint-value (BitVec->FloatingPoint
                             (mkBV (+ exp-width sig-width) 1)
                             exp-width
                             sig-width)))
+    (define neg (bfnegative? v))
     (define pv (bfabs v))
     (let-values ([(s1 p1) (bigfloat->sig+exp pv)]
                  [(s2 p2) (bigfloat->sig+exp subnormal-min)])
-      (let ([r (round (/ (* s1 (expt 2 p1)) (* s2 (expt 2 p2))))])
+      ;; exact magnitude |v| / subnormal-min = num/den (integers)
+      (define d (- p1 p2))
+      (define-values (num den)
+        (if (>= d 0)
+            (values (* s1 (expt 2 d)) s2)
+            (values s1 (* s2 (expt 2 (- d))))))
+      (let ([r (round-ratio-directed num den mode neg)])
         (cond
           [(< r 1)
-           (if (bfpositive? v)
-               (real->FloatingPoint 0.0 exp-width sig-width)
-               (real->FloatingPoint -0.0 exp-width sig-width))]
+           (if neg
+               (real->FloatingPoint -0.0 exp-width sig-width)
+               (real->FloatingPoint 0.0 exp-width sig-width))]
           [else
            (let ([rv (BitVec->FloatingPoint (mkBV (+ exp-width sig-width) r)
                                             exp-width
                                             sig-width)])
-             (if (bfpositive? v) rv (eval/fpneg rv)))])))))
+             (if neg (eval/fpneg rv) rv))])))))
+
+;; The format value an overflow rounds to, per mode and sign (`pos?`). Mirrors the
+;; Rust overflow_value: only nearest saturates to +/-inf for both signs.
+(define (overflow-value exp-width sig-width mode pos?)
+  (define maxn (get/maximum-normal exp-width sig-width))
+  (case mode
+    [(zero) (if pos? maxn (eval/fpneg maxn))]
+    [(up)   (if pos? (get/+inf exp-width sig-width) (eval/fpneg maxn))]
+    [(down) (if pos? maxn (get/-inf exp-width sig-width))]
+    [else   (if pos? (get/+inf exp-width sig-width) (get/-inf exp-width sig-width))]))
+
+;; Smallest positive normal of the format (bit pattern 2^(sig-width-1)).
+(define (get/minimum-normal exp-width sig-width)
+  (FloatingPoint-value (BitVec->FloatingPoint
+                        (mkBV (+ exp-width sig-width) (expt 2 (- sig-width 1)))
+                        exp-width sig-width)))
+
+;; Map a freshly-rounded `result` (at sig-width precision under `mode`) into the
+;; format: overflow -> mode/sign-aware clamp; magnitude below the smallest normal
+;; (this INCLUDES the (max-subnormal, smallest-normal) sliver, which is off the
+;; subnormal grid) -> a single rounding of the high-precision recompute
+;; (`hi-thunk`) onto the subnormal grid; else as-is (already a grid value).
+(define (finish-fp-result result exp-width sig-width mode hi-thunk)
+  (cond
+    [(fp/result-infinity? result exp-width sig-width)
+     (overflow-value exp-width sig-width mode (bfpositive? result))]
+    [(and (not (bfzero? result))
+          (bf< (bfabs result) (get/minimum-normal exp-width sig-width)))
+     (fp/round-to-subnormal (hi-thunk) exp-width sig-width mode)]
+    [else (mkFP exp-width sig-width result)]))
 
 (define fp/result-infinity?
   (λ (v exp-width sig-width)
@@ -211,17 +271,12 @@
       ;; apply arithmetic under the requested rounding mode
       (let ([result (parameterize ([bf-precision sig-w-1] [bf-rounding-mode mode])
                       (op v1 v2))])
-        (cond
-          [(fp/result-infinity? result exp-w-1 sig-w-1)
-           (if (bfpositive? result)
-               (get/+inf exp-w-1 sig-w-1)
-               (get/-inf exp-w-1 sig-w-1))]
-          [(and (not (bfzero? result))
-                (bf<= (bfabs result)
-                      (FloatingPoint-value
-                       (get/maximum-subnormal exp-w-1 sig-w-1))))
-           (fp/round-to-subnormal result exp-w-1 sig-w-1)]
-          [else (mkFP exp-w-1 sig-w-1 result)]))
+        ;; renormalize: mode-aware overflow, and subnormals rounded ONCE from a
+        ;; high-precision recompute (avoids the prior double-rounding + ties-even).
+        (finish-fp-result result exp-w-1 sig-w-1 mode
+                          (λ () (parameterize ([bf-precision (+ (* 2 sig-w-1) 2)]
+                                               [bf-rounding-mode mode])
+                                  (op v1 v2)))))
       (error "invalid arithmetic operation~a" op fp1 fp2)))
 
 (define eval/fpadd (eval/fparith/binop bf+))
@@ -251,17 +306,23 @@
 
 (define fp/prune (λ (fp) ((eval/fparith/binop (λ (f s) f)) 'nearest fp fp)))
 
+;; (_ to_fp E S) rm op  — round the source value ONCE into the destination format
+;; under `mode` (no double-rounding; honors the rounding mode, unlike the old
+;; nearest-only fp/prune path). NaN/inf copy across unchanged.
 (define eval/fpconv
-  (λ (fp dest-exp-width dest-sig-width)
-    (define make-new-fp
-      (λ (fp)
-        (parameterize ([bf-precision dest-sig-width])
-          (mkFP dest-exp-width
-                dest-sig-width
-                (bfcopy (FloatingPoint-value fp))))))
+  (λ (fp dest-exp-width dest-sig-width mode)
+    (define v (FloatingPoint-value fp))
     (cond
-      [(or (fp/nan? fp) (fp/infinity? fp)) (make-new-fp fp)]
-      [else (let ([new-fp (make-new-fp fp)]) (fp/prune new-fp))])))
+      [(or (fp/nan? fp) (fp/infinity? fp))
+       (parameterize ([bf-precision dest-sig-width])
+         (mkFP dest-exp-width dest-sig-width (bfcopy v)))]
+      [else
+       (let ([result (parameterize ([bf-precision dest-sig-width] [bf-rounding-mode mode])
+                       (bfcopy v))])
+         (finish-fp-result result dest-exp-width dest-sig-width mode
+                           (λ () (parameterize ([bf-precision (+ (* 2 dest-sig-width) 2)]
+                                                [bf-rounding-mode mode])
+                                   (bfcopy v)))))])))
 
 ;; floating-point predicates
 (define ((fp/pred/uni pred) fp)
